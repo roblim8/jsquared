@@ -25,9 +25,9 @@ def create_superuser(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("jsquared_app", "0001_initial"),
-    ]
+    ("auth", "0012_alter_user_first_name_max_length"),
+]
 
     operations = [
         migrations.RunPython(create_superuser),
-    ]
+    ]d
