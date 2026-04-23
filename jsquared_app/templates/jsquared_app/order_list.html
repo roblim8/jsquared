@@ -1,0 +1,28 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="m-0">Orders</h5>
+  <a class="btn btn-success btn-sm" href="{% url 'order_create' %}">+ New</a>
+</div>
+
+<div class="list-group">
+  {% for o in orders %}
+    <a class="list-group-item list-group-item-action"
+       href="{% url 'order_detail' o.order_id %}">
+      <div class="d-flex justify-content-between">
+        <div>
+          <div class="fw-semibold">Order #{{ o.order_id }}</div>
+          <div class="text-muted small">
+            Table {{ o.table_num }} • {{ o.order_date }}
+          </div>
+        </div>
+        <div class="fw-bold">₱{{ o.total_amount|floatformat:2 }}</div>
+      </div>
+    </a>
+  {% empty %}
+    <div class="text-muted">No orders yet.</div>
+  {% endfor %}
+</div>
+
+{% endblock %}

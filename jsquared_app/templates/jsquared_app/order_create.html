@@ -1,0 +1,18 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+<h5 class="mb-3">New Order</h5>
+
+<form method="post" class="card card-body">
+  {% csrf_token %}
+
+  <label class="form-label">Table Number</label>
+  <input class="form-control mb-3" name="table_num" type="number" value="1" min="1">
+
+  <label class="form-label">Customer Name (optional)</label>
+  <input class="form-control mb-3" name="customer_name" type="text" maxlength="50">
+
+  <div class="d-grid">
+    <button class="btn btn-success">Create Order</button>
+  </div>
+</form>
+{% endblock %}

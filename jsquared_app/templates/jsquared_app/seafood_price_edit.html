@@ -1,0 +1,24 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+<h5 class="mb-3">Edit Seafood</h5>
+
+<form method="post" class="card card-body">
+  {% csrf_token %}
+
+  <label class="form-label">Seafood Type</label>
+  <input class="form-control mb-3" name="seafood_type" type="text"
+         value="{{ s.seafood_type }}" maxlength="50" required>
+
+  <label class="form-label">Unit Price (₱)</label>
+  <input class="form-control mb-3" name="seafood_unit_price" type="number" step="0.01"
+         value="{{ s.seafood_unit_price }}" required>
+
+  <label class="form-label">Weight Range (kg)</label>
+  <input class="form-control mb-3" name="weight_range" type="number" step="0.01"
+         value="{{ s.weight_range }}" required>
+
+  <div class="d-grid">
+    <button class="btn btn-primary">Save</button>
+  </div>
+</form>
+{% endblock %}

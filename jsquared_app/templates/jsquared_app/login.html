@@ -1,0 +1,49 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<div class="row justify-content-center">
+  <div class="col-12" style="max-width: 420px;">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="fw-bold mb-1">J Squared</h3>
+        <p class="text-muted mb-4">Log in to continue.</p>
+
+        {% if form.errors %}
+          <div class="alert alert-danger py-2">
+            Invalid username or password.
+          </div>
+        {% endif %}
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="id_username" class="form-label">Username</label>
+            <input type="text" name="username" id="id_username"
+                   class="form-control form-control-lg"
+                   autocomplete="username" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="id_password" class="form-label">Password</label>
+            <input type="password" name="password" id="id_password"
+                   class="form-control form-control-lg"
+                   autocomplete="current-password" required>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-dark btn-lg">
+              Log in
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-3 text-center">
+          <a href="/admin/" class="text-decoration-none">Admin</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

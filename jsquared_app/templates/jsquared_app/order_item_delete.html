@@ -1,0 +1,22 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+<h5 class="mb-3 text-danger">Remove Item</h5>
+
+<div class="card card-body">
+  <p class="mb-2">
+    Remove <b>{{ item.menu_item.item_name }}</b>
+    from Order #{{ order.order_id }}?
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="d-grid gap-2">
+      <button class="btn btn-danger">Yes, Remove</button>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'order_detail' order.order_id %}">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

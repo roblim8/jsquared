@@ -1,0 +1,65 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div>
+    <div class="fw-semibold">Order #{{ order.order_id }}</div>
+    <div class="text-muted small">
+      Table {{ order.table_num }}{% if order.customer_name %} • {{ order.customer_name }}{% endif %}
+    </div>
+  </div>
+  <div class="fw-bold fs-5">₱{{ order.total_amount|floatformat:2 }}</div>
+</div>
+
+<div class="d-grid mb-3">
+  <a class="btn btn-outline-danger"
+     href="{% url 'order_delete' order.order_id %}">
+    Delete Order
+  </a>
+</div>
+
+<form method="post" class="card card-body mb-3">
+  {% csrf_token %}
+
+  <label class="form-label">Add Item</label>
+  <select class="form-select mb-2" name="menu_item_id" required>
+    {% for m in menu_items %}
+      <option value="{{ m.menu_item_id }}">{{ m.item_name }} ({{ m.pricing_type }})</option>
+    {% endfor %}
+  </select>
+
+  <label class="form-label">Quantity</label>
+  <input class="form-control mb-3" name="order_quantity" type="number" value="1" min="1">
+
+  <div class="d-grid">
+    <button class="btn btn-primary">Add to Order</button>
+  </div>
+</form>
+
+<h6 class="mb-2">Items</h6>
+<ul class="list-group">
+  {% for it in order.items.all %}
+    <li class="list-group-item">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold">{{ it.menu_item.item_name }}</div>
+          <div class="text-muted small">
+            {{ it.order_quantity }} × ₱{{ it.unit_price|floatformat:2 }}
+          </div>
+        </div>
+
+        <div class="text-end">
+          <div class="fw-bold">₱{{ it.subtotal|floatformat:2 }}</div>
+          <a class="btn btn-sm btn-outline-danger mt-1"
+             href="{% url 'order_item_delete' order.order_id it.order_item_id %}">
+            Remove
+          </a>
+        </div>
+      </div>
+    </li>
+  {% empty %}
+    <li class="list-group-item text-muted">No items yet.</li>
+  {% endfor %}
+</ul>
+
+{% endblock %}
