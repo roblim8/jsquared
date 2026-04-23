@@ -76,10 +76,8 @@ WSGI_APPLICATION = "jsquared.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DDATABASES = {
-    "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL")
-    )
+DATABASES = {
+    "default": dj_database_url.parse(os.environ["DATABASE_URL"])
 }
 
 # Password validation
