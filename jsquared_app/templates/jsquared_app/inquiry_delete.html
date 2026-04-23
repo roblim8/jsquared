@@ -1,0 +1,18 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<h3>Delete Inquiry</h3>
+
+<div class="card p-3">
+  <p class="mb-1"><strong>Inquiry #{{ req.inquiry_id }}</strong></p>
+  <p class="mb-1">Meat: <strong>{{ req.meat.meat_type }}</strong></p>
+  <p class="mb-3 text-muted">This will mark the request as Cancelled.</p>
+
+  <form method="post" class="d-flex gap-2">
+    {% csrf_token %}
+    <button class="btn btn-danger">Delete</button>
+    <a class="btn btn-secondary" href="{% url 'inquiry_list' %}">Cancel</a>
+  </form>
+</div>
+
+{% endblock %}

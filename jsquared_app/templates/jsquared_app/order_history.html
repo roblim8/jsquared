@@ -1,0 +1,58 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="page-header">
+  <h1 class="page-title">History</h1>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div style="display:flex; gap:10px; margin: 1rem 1rem;">
+  <a href="{% url 'order_list' %}" style="flex:1; text-align:center; padding:10px 14px; border-radius:999px; text-decoration:none; background:#e6e6e2; color:#333; font-weight:700;">Active Orders</a>
+  <a href="{% url 'order_history' %}" style="flex:1; text-align:center; padding:10px 14px; border-radius:999px; text-decoration:none; background:#3e9b08; color:#fff; font-weight:700;">History</a>
+</div>
+
+<div class="card-list">
+  {% for o in history_orders %}
+    {% if o.order_status == 'Cancelled' %}
+    <div class="list-card" style="background:#f8f8f6; cursor:default;">
+      <div class="order-card-left">
+        <p class="card-title">Order #{{ o.order_id|stringformat:"03d" }}</p>
+        <p class="card-sub">{{ o.created_at|date:"j M Y, H:i" }}</p>
+      </div>
+      <div class="order-card-right" style="display:flex; align-items:center; gap:10px;">
+        <span style="display:inline-block; min-width:94px; text-align:center; padding:6px 12px; border-radius:999px; background:#bfbfbf; color:#fff; font-weight:700; font-size:12px;">CANCELLED</span>
+      </div>
+    </div>
+    {% else %}
+    <a href="{% url 'order_checkout' o.order_id %}" class="list-card list-card-link" style="background:#f8f8f6;">
+      <div class="order-card-left">
+        <p class="card-title">Order #{{ o.order_id|stringformat:"03d" }}</p>
+        <p class="card-sub">{{ o.created_at|date:"j M Y, H:i" }}</p>
+      </div>
+      <div class="order-card-right" style="display:flex; align-items:center; gap:10px;">
+        {% if o.payment_status == 'Paid' %}
+          <span style="display:inline-block; min-width:78px; text-align:center; padding:6px 12px; border-radius:999px; background:#46a314; color:#fff; font-weight:700; font-size:12px;">PAID</span>
+        {% else %}
+          <span style="display:inline-block; min-width:78px; text-align:center; padding:6px 12px; border-radius:999px; background:#ff4a4a; color:#fff; font-weight:700; font-size:12px;">UNPAID</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endif %}
+  {% empty %}
+  <div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.2">
+      <path d="M6 2 3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+    </svg>
+    <p>No order history yet.</p>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

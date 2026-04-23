@@ -4,7 +4,13 @@
 
 <div class="card card-body">
   <p class="mb-2">
-    Remove <b>{{ item.menu_item.item_name }}</b>
+    Remove <b>
+      {% if item.fixed_item %}
+        {{ item.fixed_item.item_name }}
+      {% else %}
+        {{ item.varied_item.meat.meat_type }} — {{ item.varied_item.cooking_style.style_name }}{% if item.varied_item.is_byom %} (BYO){% endif %}
+      {% endif %}
+    </b>
     from Order #{{ order.order_id }}?
   </p>
 
@@ -12,10 +18,7 @@
     {% csrf_token %}
     <div class="d-grid gap-2">
       <button class="btn btn-danger">Yes, Remove</button>
-      <a class="btn btn-outline-secondary"
-         href="{% url 'order_detail' order.order_id %}">
-        Cancel
-      </a>
+      <a class="btn btn-outline-secondary" href="{% url 'order_detail' order.order_id %}">Cancel</a>
     </div>
   </form>
 </div>

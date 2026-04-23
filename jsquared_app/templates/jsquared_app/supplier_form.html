@@ -1,0 +1,83 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar">
+  <a href="javascript:history.back()" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header">
+  <h1 class="page-title">{% if mode == 'create' %}New Supplier{% else %}Edit Supplier{% endif %}</h1>
+</div>
+
+<form method="post" id="supplierForm" style="padding: 0 1.25rem;">
+  {% csrf_token %}
+
+  <div class="sup-form-card">
+    <p class="sup-form-section-title">Supplier details</p>
+
+    <!-- Name -->
+    <label class="sup-form-label">Name <span class="sup-required">*</span></label>
+    <div class="login-input-wrapper {% if errors.name %}sup-field-error{% endif %}" style="margin-bottom:16px;">
+      <input type="text" name="supplier_name" class="login-input"
+             placeholder="Name" value="{{ supplier.supplier_name|default:'' }}"
+             oninput="checkForm()" required>
+    </div>
+
+    <!-- Contact number -->
+    <label class="sup-form-label">Contact number <span class="sup-required">*</span></label>
+    <div class="login-input-wrapper {% if errors.phone %}sup-field-error{% endif %}" style="margin-bottom:16px;">
+      <input type="text" name="phone_number" class="login-input"
+             placeholder="xxxx-xxx-xxxx" value="{{ supplier.phone_number|default:'' }}"
+             oninput="checkForm()" required>
+    </div>
+
+    <!-- Store location -->
+    <label class="sup-form-label">Store location <span class="sup-required">*</span></label>
+    <div class="login-input-wrapper {% if errors.address %}sup-field-error{% endif %}">
+      <input type="text" name="supplier_address" class="login-input"
+             placeholder="Location" value="{{ supplier.supplier_address|default:'' }}"
+             oninput="checkForm()" required>
+    </div>
+  </div>
+
+  {% if errors %}
+  <p class="cr-validation" style="margin-top:12px;">All fields are required.</p>
+  {% endif %}
+
+  <div style="margin-top:1.5rem;">
+    <button type="submit" id="submitBtn" class="create-submit-btn"
+            {% if mode == 'create' %}disabled{% else %}class="create-submit-btn create-submit-btn-active"{% endif %}>
+      {% if mode == 'create' %}Create supplier{% else %}Save changes{% endif %}
+    </button>
+  </div>
+
+</form>
+
+<script>
+{% if mode == 'create' %}
+function checkForm() {
+  const name    = document.querySelector('[name="supplier_name"]').value.trim();
+  const phone   = document.querySelector('[name="phone_number"]').value.trim();
+  const address = document.querySelector('[name="supplier_address"]').value.trim();
+  const filled  = name && phone && address;
+  const btn     = document.getElementById('submitBtn');
+  btn.disabled  = !filled;
+  btn.classList.toggle('create-submit-btn-active', filled);
+}
+{% else %}
+// Edit mode — always enabled
+document.getElementById('submitBtn').classList.add('create-submit-btn-active');
+function checkForm() {}
+{% endif %}
+</script>
+
+{% endblock %}

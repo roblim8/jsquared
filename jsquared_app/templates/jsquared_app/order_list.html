@@ -1,28 +1,77 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h5 class="m-0">Orders</h5>
-  <a class="btn btn-success btn-sm" href="{% url 'order_create' %}">+ New</a>
+<div class="page-header">
+  <h1 class="page-title">Orders</h1>
+  <form method="post" action="{% url 'logout' %}" style="margin:0"> <!-- Logout -->
+    {% csrf_token %}
+    <button type="submit" class="close-btn" title="Logout">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+        <polyline points="16,17 21,12 16,7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
+  </form>
 </div>
 
-<div class="list-group">
-  {% for o in orders %}
-    <a class="list-group-item list-group-item-action"
-       href="{% url 'order_detail' o.order_id %}">
-      <div class="d-flex justify-content-between">
-        <div>
-          <div class="fw-semibold">Order #{{ o.order_id }}</div>
-          <div class="text-muted small">
-            Table {{ o.table_num }} • {{ o.order_date }}
-          </div>
-        </div>
-        <div class="fw-bold">₱{{ o.total_amount|floatformat:2 }}</div>
-      </div>
-    </a>
-  {% empty %}
-    <div class="text-muted">No orders yet.</div>
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div style="display:flex; gap:10px; margin: 1rem 1rem;">
+  <a href="{% url 'order_list' %}" style="flex:1; text-align:center; padding:10px 14px; border-radius:999px; text-decoration:none; background:#3e9b08; color:#fff; font-weight:700;">Active Orders</a>
+  <a href="{% url 'order_history' %}" style="flex:1; text-align:center; padding:10px 14px; border-radius:999px; text-decoration:none; background:#e6e6e2; color:#333; font-weight:700;">History</a>
+</div>
+
+
+{% if preparing_orders %}
+<p class="section-label" style="margin-top:1.5rem;">Preparing</p>
+<div class="card-list">
+  {% for o in preparing_orders %}
+  <a href="{% url 'order_detail' o.order_id %}" class="list-card list-card-green list-card-link">
+    <div class="order-card-left">
+      <p class="card-title" style="color:white;">Order #{{ o.order_id|stringformat:"03d" }}</p>
+      <p class="card-sub" style="color:white;">Customer: {{ o.customer_name|default:"—" }}</p>
+    </div>
+    <div class="order-card-right">
+      <p class="order-card-table">Table #{{ o.table_num|default:"—" }}</p>
+      <p class="order-card-time">{{ o.created_at|timesince }} ago</p>
+    </div>
+  </a>
   {% endfor %}
 </div>
+{% endif %}
+
+{% if pending_orders %}
+<p class="section-label" style="margin-top:1.5rem;">New Orders</p>
+<div class="card-list">
+  {% for o in pending_orders %}
+  <a href="{% url 'order_detail' o.order_id %}" class="list-card list-card-blue list-card-link">
+    <div class="order-card-left">
+      <p class="card-title">Order #{{ o.order_id|stringformat:"03d" }}</p>
+      <p class="card-sub">Customer: {{ o.customer_name|default:"—" }}</p>
+    </div>
+    <div class="order-card-right">
+      <p class="order-card-table order-card-table-blue">Table #{{ o.table_num|default:"—" }}</p>
+      <p class="order-card-time order-card-time-blue">{{ o.created_at|timesince }} ago</p>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not preparing_orders and not pending_orders %}
+<div class="empty-state">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.2">
+    <path d="M6 2 3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+    <line x1="3" y1="6" x2="21" y2="6"/>
+  </svg>
+  <p>No active orders.</p>
+</div>
+{% endif %}
 
 {% endblock %}

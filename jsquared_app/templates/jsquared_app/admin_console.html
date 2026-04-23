@@ -1,0 +1,29 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<!-- Back -->
+<div class="detail-topbar">
+  <a href="{% url 'login' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header"><h1 class="page-title">Admin Console</h1></div>
+
+<div class="container" style="margin-top:1rem;">
+  <div class="d-grid gap-3">
+    <a href="{% url 'account_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Registered Accounts</a>
+    <a href="{% url 'sales_report' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Sales Report</a>
+    <a href="{% url 'supplier_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Suppliers</a>
+    <a href="{% url 'discount_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Discount Types</a>
+    <a href="{% url 'audit_log_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Audit Logs</a>
+    <a href="{% url 'backup_restore' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Backup / Restore</a>
+  </div>
+</div>
+{% endblock %}

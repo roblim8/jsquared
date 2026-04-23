@@ -1,0 +1,4 @@
+
+{% extends "jsquared_app/base.html" %}{% block bottom_nav %}{% endblock %}{% block content %}
+<div class="container py-5"><div class="card p-4"><h3>Delete Supplier</h3><p>Are you sure you want to delete <strong>{{ supplier.supplier_name }}</strong>?</p><form method="post">{% csrf_token %}<a href="{% url 'supplier_detail' supplier.supplier_id %}" class="btn btn-outline-secondary">Cancel</a> <button class="btn btn-danger">Delete</button></form></div></div>
+{% endblock %}

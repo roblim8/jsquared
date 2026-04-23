@@ -1,0 +1,45 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% load static %}
+{% block content %}
+
+<!-- Back -->
+<div class="detail-topbar">
+  <a href="{% url 'admin_console' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div class="page-header">
+  <h1 class="page-title">Accounts</h1>
+    <a href="{% url 'account_create' %}" class="add-btn">+ Create</a>
+</div>
+
+<p style="margin-left: 1rem;">Total accounts: {{ accounts|length }}</p>
+
+<div class="list-group" style="margin-top:1rem;">
+  {% for acc in accounts %}
+    <a href="{% url 'account_detail' acc.staff_id %}" class="list-group-item list-group-item-action d-flex align-items-center" style="border-radius: 12px; margin-bottom: 8px;">
+        <div class="flex-grow-1">
+            <div class="fw-semibold">
+            {{ acc.staff_name }}
+            </div>
+            <div class="text-muted">
+            {{ acc.staff_role }}
+            </div>
+        </div>
+    </a>
+
+  {% endfor %}
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar">
+  <a href="{% url 'admin_console' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header">
+  <h1 class="page-title">Sales Report</h1>
+  <a href="{% url 'discount_create' %}" class="add-btn">+ Discount</a>
+</div>
+
+
+  <table class="table table-bordered align-middle" style="margin-top: 1rem;">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Value (%)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for discount in discounts %}
+      <tr>
+        <td>{{ discount.discount_type }}</td>
+        <td>{{ discount.discount_value }}</td>
+        <td>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'discount_edit' discount.discount_id %}">Edit</a>
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'discount_delete' discount.discount_id %}">Delete</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="text-center">No discounts yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,19 +1,178 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block content %}
 
-<div class="d-grid gap-2">
-  <a class="btn btn-primary btn-lg" href="{% url 'seafood_price_list' %}">
-    Manage Seafood Prices
-  </a>
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
 
-  <a class="btn btn-success btn-lg" href="{% url 'order_list' %}">
-    Create Customer Order
-  </a>
 
-  <form method="post" action="{% url 'logout' %}">
+<div class="page-header">
+  <h1 class="page-title">Prices</h1>
+  <form method="post" action="{% url 'logout' %}" style="margin:0"> <!-- Logout -->
     {% csrf_token %}
-    <button class="btn btn-dark btn-lg">Logout</button>
+    <button type="submit" class="close-btn" title="Logout">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+        <polyline points="16,17 21,12 16,7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
   </form>
 </div>
+
+<!-- Search + Add -->
+<div class="search-row">
+  <div class="search-wrapper">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" class="search-input w-100" id="searchInput" placeholder="Search seafood" oninput="filterCards()">
+  </div>
+  {% if is_staff or is_manager %}
+  <a href="/admin/jsquared_app/meatitem/add/" class="add-btn">+ Add</a>
+  {% endif %}
+</div>
+
+<div class="summary-strip">
+  <div class="summary-pill" onclick="filterByStatus('all')">
+    <div class="summary-indicator total"></div>
+    <span class="summary-num">{{ meat_items.count }}</span>
+    <span class="summary-label">Total</span>
+  </div>
+  <div class="summary-pill" onclick="filterByStatus('available')" id="pill-available">
+    <div class="summary-indicator available"></div>
+    <span class="summary-num" id="availableCount">0</span>
+    <span class="summary-label">Available</span>
+  </div>
+  <div class="summary-pill" onclick="filterByStatus('inquire')" id="pill-inquire">
+    <div class="summary-indicator inquire"></div>
+    <span class="summary-num" id="inquireCount">0</span>
+    <span class="summary-label">Inquire</span>
+  </div>
+</div>
+
+<!-- Price Grid -->
+<div class="price-grid" id="priceGrid">
+
+  {% for item in meat_items %}
+    {% if item.item_status == 'Available' %}
+    <div class="price-card" data-name="{{ item.meat_type|lower }}" data-status="available"
+        onclick="window.location='{% url 'meat_detail' item.meat_id %}'">
+      <div class="card-image">
+        {% if item.meat_image %}
+          <img src="{{ item.meat_image.url }}" alt="{{ item.meat_type }}">
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="card-name-row">
+          <p class="card-name">{{ item.meat_type }}</p>
+          <span class="card-time">{{ item.price_updated_at|date:"H:i" }}</span>
+        </div>
+        <div class="card-price-row">
+          <p class="card-price">₱ {{ item.current_price }}/kg</p>
+          <span class="chevron">›</span>
+        </div>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="price-card inquire-state" data-name="{{ item.meat_type|lower }}" data-status="inquire"
+     onclick="window.location='{% url 'meat_detail' item.meat_id %}'">
+      <div class="card-image">
+        {% if item.meat_image %}
+          <img src="{{ item.meat_image.url }}" alt="{{ item.meat_type }}">
+        {% else %}
+          <img src="{% static 'jsquared_app/icons/default_meat.png' %}" alt="No image" style="opacity:0.5;">
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="card-name-row">
+          <p class="card-name">{{ item.meat_type }}</p>
+          <span class="inquire-badge">Inquire</span>
+        </div>
+        <div class="card-price-row">
+          <p class="card-price">₱ {{ item.current_price }}/kg</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  {% empty %}
+    <div class="empty-state">
+      <p>No seafood items yet.<br>Add some from the Admin panel.</p>
+    </div>
+  {% endfor %}
+
+</div>
+
+<script>
+// Search filter
+function filterCards() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  const cards = document.querySelectorAll('.price-card');
+  cards.forEach(card => {
+    const name = card.dataset.name || '';
+    card.style.display = name.includes(query) ? '' : 'none';
+  });
+}
+
+// Update summary counts
+document.addEventListener('DOMContentLoaded', () => {
+  const all = document.querySelectorAll('.price-card');
+  const inquire = document.querySelectorAll('.price-card.inquire-state');
+  const available = all.length - inquire.length;
+  document.querySelector('.available-count').textContent = available;
+  document.querySelector('.inquire-count').textContent = inquire.length;
+});
+
+// Status filter 
+let activeFilter = 'all';
+
+function filterByStatus(status) {
+  // Toggle off if clicking active filter
+  if (activeFilter === status) status = 'all';
+  activeFilter = status;
+
+  // Update pill active styles
+  document.querySelectorAll('.summary-pill').forEach(p => p.classList.remove('summary-pill-active'));
+  if (status !== 'all') {
+    const pill = document.getElementById('pill-' + status);
+    if (pill) pill.classList.add('summary-pill-active');
+  }
+
+  applyFilters();
+}
+
+function filterCards() {
+  applyFilters();
+}
+
+function applyFilters() {
+  const query = (document.getElementById('searchInput').value || '').toLowerCase();
+  const cards = document.querySelectorAll('.price-card');
+
+  cards.forEach(card => {
+    const nameMatch = (card.dataset.name || '').includes(query);
+    const statusMatch = activeFilter === 'all' || card.dataset.status === activeFilter;
+    card.style.display = (nameMatch && statusMatch) ? '' : 'none';
+  });
+
+  updateCounts();
+}
+
+function updateCounts() {
+  const all = [...document.querySelectorAll('.price-card')];
+  document.getElementById('availableCount').textContent =
+    all.filter(c => c.dataset.status === 'available').length;
+  document.getElementById('inquireCount').textContent =
+    all.filter(c => c.dataset.status === 'inquire').length;
+}
+
+document.addEventListener('DOMContentLoaded', updateCounts);
+
+</script>
 
 {% endblock %}

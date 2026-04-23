@@ -1,49 +1,163 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block content %}
 
-<div class="row justify-content-center">
-  <div class="col-12" style="max-width: 420px;">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h3 class="fw-bold mb-1">J Squared</h3>
-        <p class="text-muted mb-4">Log in to continue.</p>
+<div class="login-page">
 
-        {% if form.errors %}
-          <div class="alert alert-danger py-2">
-            Invalid username or password.
-          </div>
-        {% endif %}
+  <!-- Logo -->
+  <div class="login-logo">
+    <img src="{% static 'jsquared_app/logo.jpg' %}" alt="J Squared Palutuan Logo">
+  </div>
 
-        <form method="post">
-          {% csrf_token %}
+  <!-- Heading -->
+  <h1 class="login-title">Welcome to the Order Management System!</h1>
 
-          <div class="mb-3">
-            <label for="id_username" class="form-label">Username</label>
-            <input type="text" name="username" id="id_username"
-                   class="form-control form-control-lg"
-                   autocomplete="username" required>
-          </div>
+  <!-- Form -->
+  <form method="post" class="login-form">
+    {% csrf_token %}
 
-          <div class="mb-3">
-            <label for="id_password" class="form-label">Password</label>
-            <input type="password" name="password" id="id_password"
-                   class="form-control form-control-lg"
-                   autocomplete="current-password" required>
-          </div>
+    <!-- Username -->
+    <div class="login-input-wrapper">
+      <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      <input type="text" name="username" id="id_username"
+             class="login-input" placeholder="Cashier"
+             autocomplete="username" required>
+    </div>
 
-          <div class="d-grid">
-            <button type="submit" class="btn btn-dark btn-lg">
-              Log in
-            </button>
-          </div>
-        </form>
+    <!-- Password -->
+    <div class="login-input-wrapper">
+      <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+      <input type="password" name="password" id="id_password"
+             class="login-input" placeholder="••••••••••••"
+             autocomplete="current-password" required>
+      <button type="button" class="eye-btn" onclick="togglePassword()">
+        <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
 
-        <div class="mt-3 text-center">
-          <a href="/admin/" class="text-decoration-none">Admin</a>
-        </div>
+    <!-- Errors -->
+    {% if form.errors %}
+    <div class="login-error-block">
+      <div class="login-error-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FF383C" stroke-width="1.5" width="16" height="16">
+          <polygon points="12,2 2,22 22,22"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span class="login-error-text">Incorrect password or username</span>
+      </div>
+      <div class="login-error-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FF383C" stroke-width="1.5" width="16" height="16">
+          <polygon points="12,2 2,22 22,22"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span class="login-error-text"><strong>Forgot your password?</strong><br>Please contact manager for assistance</span>
       </div>
     </div>
+    {% endif %}
+
+    <!-- Login Button -->
+    <button type="submit" class="login-btn">Log in</button>
+    <button type="button" class="admin-btn" onclick="openManagerModal()">Admin Console</button>
+
+  </form>
+
+  <!-- Footer -->
+  <div class="login-footer">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B8E0D" stroke-width="1.5">
+      <polygon points="12,2 2,22 22,22"/>
+    </svg>
+    <div>
+      <p class="footer-powered">powered by</p>
+      <p class="footer-brand">STARK Inc.</p>
+    </div>
   </div>
+
+  <!-- ══════════════════════
+     MODAL: Manager Login
+     ══════════════════════ -->
+  <div class="inq-modal-overlay" id="managerModal" style="display:none;" onclick="closeManagerModal()">
+    <div class="inq-modal" onclick="event.stopPropagation()">
+
+      <!-- Title -->
+      <div class="inq-modal-titlerow">
+        <span class="inq-modal-heading">Login with "manager" account to access admin console</span>
+        <button class="inq-modal-x" onclick="closeManagerModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="#999" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form method="post" action="{% url 'admin_console' %}">
+        {% csrf_token %}
+
+        <!-- Username -->
+        <div class="login-input-wrapper">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          <input type="text" name="username" class="login-input" placeholder="Manager Username" required>
+        </div>
+
+        <!-- Password -->
+        <div class="login-input-wrapper" style="margin-top: 1rem;">
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <input type="password" name="password" id="id_password"
+             class="login-input" placeholder="••••••••••••"
+             autocomplete="current-password" required>
+          <button type="button" class="eye-btn" onclick="togglePassword()">
+            <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Actions -->
+        <div style="margin-top: 1rem;">
+          <button type="submit" class="login-btn">Login</button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+  
+  {% block bottom_nav %}{% endblock %}
+
 </div>
+
+<script>
+function togglePassword() {
+  const input = document.getElementById('id_password');
+  const icon = document.getElementById('eye-icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+function openManagerModal() {
+  document.getElementById('managerModal').style.display = 'flex';
+}
+
+function closeManagerModal() {
+  document.getElementById('managerModal').style.display = 'none';
+}
+
+</script>
 
 {% endblock %}

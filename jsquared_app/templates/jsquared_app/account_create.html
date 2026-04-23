@@ -1,0 +1,83 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% load static %}
+{% block content %}
+
+<!-- Back -->
+<div class="detail-topbar">
+  <a href="{% url 'account_list' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div class="page-header">
+  <h1 class="page-title">Create New Account</h1>
+</div>
+
+<form method="post" style="margin-top:1rem;">
+  {% csrf_token %}
+
+  <!-- Username -->
+    <div style="margin-top:1rem;">
+        <p>Username</p>
+        <div class="login-input-wrapper">
+            <input type="text" name="username" class="login-input" placeholder="Username" required>
+        </div>
+    </div>
+
+    <!-- Staff Name (display name) -->
+    <div style="margin-top:1rem;">
+        <p>Staff Name</p>
+        <div class="login-input-wrapper">
+            <input type="text" name="staff_name" class="login-input" placeholder="Full Name" required>
+        </div>
+    </div>
+
+    <!-- Password -->
+    <div style="margin-top:1rem;">
+        <p>Password</p>
+        <div class="login-input-wrapper">
+            <input type="password" name="password" class="login-input" placeholder="Password" required>
+        </div>
+    </div>
+
+  <!-- Confirm Password -->
+    <div style="margin-top:1rem;">
+        <p>Confirm Password</p>
+        <div class="login-input-wrapper">
+            <input type="password" name="confirm_password" class="login-input" placeholder="Confirm Password" required>
+        </div>
+    </div>
+
+  <!-- Role Dropdown -->
+    <div style="margin-top:1rem;">
+        <p>Role</p>
+        <div class="login-input-wrapper">
+        <select name="role" class="login-input" required>
+            <option value="">Select Role</option>
+            <option value="cashier">Cashier</option>
+            <option value="manager">Manager</option>
+        </select>
+        </div>
+    </div>
+
+  <!-- Submit -->
+  <div style="margin-top:1.5rem;">
+    <button type="submit" class="inq-action-btn inq-btn-yellow" style="width:100%;">
+      Create Account
+    </button>
+  </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<style>
+.sup-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+  margin-top: 0.25rem;
+}
+.sup-sub {
+  font-size: 14px;
+  color: #888;
+  margin-top: 4px;
+}
+.sup-sub span {
+  color: #ccc;
+  margin: 0 6px;
+}
+.sup-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.sup-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f7f3ee;
+  color: #6a4e3b;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sup-tx-preview {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0ece7;
+}
+.sup-tx-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7b624d;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.sup-tx-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 6px;
+}
+.sup-tx-item:last-child {
+  margin-bottom: 0;
+}
+.sup-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.sup-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 108px;
+}
+.sup-link-btn-primary {
+  background: #b9855f;
+  color: #fff;
+}
+.sup-link-btn-secondary {
+  background: #f5f5f5;
+  color: #444;
+}
+</style>
+
+<div class="detail-topbar">
+  <a href="{% if selection_mode %}{{ return_url|default:'/orders/' }}{% else %}{% url 'admin_console' %}{% endif %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header">
+  <h1 class="page-title">{% if selection_mode %}Select a Supplier{% else %}Suppliers{% endif %}</h1>
+</div>
+
+<div class="cr-filter-row">
+  <div class="search-wrapper" style="flex:1;">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+    </svg>
+    <input type="text" class="search-input" id="supplierSearch" placeholder="Search supplier" oninput="filterSuppliers()" value="{{ q }}">
+  </div>
+  <a href="{% url 'supplier_create' %}" class="create-submit-btn create-submit-btn-active" style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
+    + New supplier
+  </a>
+</div>
+
+<div class="card-list" id="supplierList" style="margin-top: 1.5rem;">
+  {% for s in suppliers %}
+    {% if selection_mode %}
+      <label class="cr-card cr-inq-card" data-name="{{ s.supplier_name|lower }}" id="inq-item-{{ s.supplier_id }}">
+        <input type="checkbox" name="supplier_id" value="{{ s.supplier_id }}" class="cr-inq-checkbox" onchange="onSupplierCheckChange(this)" hidden>
+        <div class="cr-inq-radio" id="radio-{{ s.supplier_id }}"></div>
+        <div class="cr-card-info">
+          <p class="sup-name">{{ s.supplier_name }}</p>
+        </div>
+      </label>
+    {% else %}
+      <div class="cr-card" data-name="{{ s.supplier_name|lower }} {{ s.phone_number|lower }} {{ s.supplier_address|lower }}">
+        <div class="cr-card-info" style="width:100%;">
+          <p class="sup-name">{{ s.supplier_name }}</p>
+          <p class="sup-sub">
+            {{ s.phone_number }}
+            {% if s.supplier_address %}<span>•</span>{{ s.supplier_address }}{% endif %}
+          </p>
+
+          <div class="sup-stats">
+            <span class="sup-stat-pill">{{ s.transaction_count }} transaction{{ s.transaction_count|pluralize }}</span>
+            <span class="sup-stat-pill">Total: ₱ {{ s.total_transaction_amount|floatformat:2 }}</span>
+            <span class="sup-stat-pill">Pending: ₱ {{ s.pending_transaction_amount|floatformat:2 }}</span>
+            {% if s.last_transaction_date %}
+              <span class="sup-stat-pill">Last: {{ s.last_transaction_date|date:"Y-m-d" }}</span>
+            {% else %}
+              <span class="sup-stat-pill">No transactions yet</span>
+            {% endif %}
+          </div>
+
+          <div class="sup-tx-preview">
+            <div class="sup-tx-title">Recent transactions</div>
+            {% for tx in s.recent_transactions %}
+              <div class="sup-tx-item">
+                <span>{% if tx.meat %}{{ tx.meat.meat_type }}{% else %}{{ tx.item_name|default:'—' }}{% endif %}</span>
+                <span>₱ {{ tx.transaction_amount|floatformat:2 }} · {% if tx.payment_status == "Paid" %}Completed{% elif tx.payment_status == "Unpaid" %}Pending{% else %}{{ tx.payment_status }}{% endif %}</span>
+              </div>
+            {% empty %}
+              <div class="sup-tx-item">
+                <span>No transactions recorded yet.</span>
+                <span>—</span>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="sup-actions">
+            <a href="{% url 'supplier_detail' s.supplier_id %}" class="sup-link-btn sup-link-btn-primary">View details</a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% empty %}
+    <div class="empty-state"><p>No supplier data available.</p></div>
+  {% endfor %}
+</div>
+
+{% if selection_mode %}
+<div class="create-btn-row" style="margin-top: 2rem;">
+  <button type="button" id="confirmBtn" class="create-submit-btn" disabled onclick="confirmSelection()">
+    Confirm
+  </button>
+</div>
+
+<form id="confirmForm" method="post" action="{% url 'supplier_list' %}" style="display:none;">
+  {% csrf_token %}
+  <input type="hidden" name="supplier_id" id="selectedSupplierId">
+  <input type="hidden" name="order_item_id" value="{{ order_item_id }}">
+  <input type="hidden" name="return_url" value="{{ return_url }}">
+  <input type="hidden" name="action" value="assign_supplier">
+</form>
+{% endif %}
+
+<script>
+let selectedId = null;
+const returnUrl = "{{ return_url|escapejs }}";
+const orderItemId = "{{ order_item_id|default:'' }}";
+const selectionMode = {{ selection_mode|yesno:"true,false" }};
+
+function onSupplierCheckChange(cb) {
+  if (!selectionMode) return;
+  document.querySelectorAll('.cr-inq-checkbox').forEach(box => {
+    if (box !== cb) {
+      box.checked = false;
+      const card = document.getElementById('inq-item-' + box.value);
+      const radio = document.getElementById('radio-' + box.value);
+      if (card) card.classList.remove('cr-inq-card-selected');
+      if (radio) radio.classList.remove('cr-inq-radio-filled');
+    }
+  });
+
+  const supplierId = cb.value;
+  const card = document.getElementById('inq-item-' + supplierId);
+  const radio = document.getElementById('radio-' + supplierId);
+  if (cb.checked) {
+    if (card) card.classList.add('cr-inq-card-selected');
+    if (radio) radio.classList.add('cr-inq-radio-filled');
+    selectedId = supplierId;
+  } else {
+    if (card) card.classList.remove('cr-inq-card-selected');
+    if (radio) radio.classList.remove('cr-inq-radio-filled');
+    selectedId = null;
+  }
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  if (!selectionMode) return;
+  const checked = document.querySelectorAll('.cr-inq-checkbox:checked');
+  const btn = document.getElementById('confirmBtn');
+  if (!btn) return;
+  btn.disabled = checked.length === 0;
+  btn.classList.toggle('create-submit-btn-active', checked.length > 0);
+}
+
+function confirmSelection() {
+  if (!selectionMode || !selectedId) return;
+  document.getElementById('selectedSupplierId').value = selectedId;
+  document.querySelector('input[name="order_item_id"]').value = orderItemId;
+  document.getElementById('confirmForm').submit();
+}
+
+function filterSuppliers() {
+  const q = document.getElementById('supplierSearch').value.toLowerCase();
+  document.querySelectorAll('#supplierList > .cr-card, #supplierList > label.cr-card').forEach(c => {
+    const haystack = (c.dataset.name || '').toLowerCase();
+    c.style.display = haystack.includes(q) ? '' : 'none';
+  });
+}
+</script>
+
+{% endblock %}

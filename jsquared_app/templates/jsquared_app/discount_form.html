@@ -1,0 +1,29 @@
+
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}
+{% endblock %}{% block content %}
+
+<div class="detail-topbar">
+  <a href="{% url 'discount_list' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="container py-4">
+    <h2>{% if mode == 'create' %}Add Discount{% else %}Edit Discount{% endif %}</h2>
+    <form method="post" class="card p-3">{% csrf_token %}
+        <select name="discount_type" class="form-select mb-2">
+            <option value="PWD" {% if discount.discount_type == 'PWD' %}selected{% endif %}>PWD</option>
+            <option value="Senior Citizen" {% if discount.discount_type == 'Senior Citizen' %}selected{% endif %}>Senior Citizen</option>
+            <option value="Suki" {% if discount.discount_type == 'Suki' %}selected{% endif %}>Suki</option>
+        </select>
+        <input class="form-control mb-3" type="number" step="0.01" name="discount_value" value="{{ discount.discount_value|default:'' }}" required>
+        <button class="btn btn-primary">Save</button>
+    </form>
+</div>
+{% endblock %}

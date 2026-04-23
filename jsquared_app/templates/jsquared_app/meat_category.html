@@ -1,0 +1,67 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<!-- Back -->
+<div class="detail-topbar">
+  <a href="{% url 'cooking_styles_list' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<!-- Meat Image Banner -->
+{% if meat.meat_image %}
+    <div style="width: 100vw; max-width: 100%; height: 33vh; overflow: hidden; position: relative; margin-bottom: 2rem;">
+        <img src="{{ meat.meat_image.url }}" alt="{{ meat.meat_type }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+    </div>
+{% endif %}
+
+<table style="width: 100%; margin-bottom: 20px;">
+    <tr>
+        <td>
+            <h1 style="font-size: 24px; font-weight: bold;">{{ meat.meat_type }}</h1>
+        </td>
+        <td style="text-align: right;">
+            <a href="{% url 'cooking_style_create' meat.meat_id %}" 
+               style="background-color: #f1f10e; color: black; padding: 10px 20px; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                + Add
+            </a>
+        </td>
+    </tr>
+</table>
+
+<div id="styles-list">
+    {% for style in styles %}
+        <a href="{% url 'cooking_style_edit' style.cooking_style_id %}" class="list-group-item list-group-item-action d-flex align-items-center" style="border-radius: 12px; margin-bottom: 8px;">
+            <div style="border: 1px solid #ddd; border-radius: 15px; padding: 15px; margin-bottom: 15px; width: 100%; display: flex; align-items: center; background-color: white;">
+                
+                <div style="width: 70px; height: 70px; background-color: #eeeeee; border-radius: 10px; overflow: hidden; margin-right: 15px;">
+                    {% if style.icon %}
+                        <img src="{{ style.icon.url }}" width="70" height="70" style="object-fit: cover;">
+                    {% else %}
+                        <p style="font-size: 10px; text-align: center; margin-top: 25px;">No Image</p>
+                    {% endif %}
+                </div>
+
+                <div style="flex: 1;">
+                    <span style="font-weight: bold; font-size: 18px;">{{ style.style_name }}</span>
+                    <span style="color: gray; font-size: 14px; margin-left: 10px;">
+                        ₱ {{ style.cooking_charge }}
+                    </span>
+                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 0;">
+                        {{ style.style_description }}
+                    </p>
+                </div>
+            </div>
+        </a>
+    {% empty %}
+        <p>There are no cooking styles here yet.</p>
+    {% endfor %}
+</div>
+
+{% endblock %}

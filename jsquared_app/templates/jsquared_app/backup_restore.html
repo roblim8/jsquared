@@ -1,0 +1,43 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar">
+  <a href="{% url 'admin_console' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header">
+  <h1 class="page-title">Backup / Restore</h1>
+</div>
+
+
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card p-3 h-100">
+        <h5>Download Backup</h5>
+        <p class="text-muted mb-3">Download a copy of your current system data so you have a saved backup.</p>
+        <a href="{% url 'backup_download' %}" class="btn btn-success">Download Backup</a>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card p-3 h-100">
+        <h5>Restore Backup</h5>
+        <p class="text-muted mb-3">Upload a backup file to restore saved system data.</p>
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="file" name="backup_file" class="form-control mb-3" accept="application/json" required>
+          <button class="btn btn-danger">Restore Backup</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

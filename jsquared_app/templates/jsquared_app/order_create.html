@@ -1,18 +1,773 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
-<h5 class="mb-3">New Order</h5>
 
-<form method="post" class="card card-body">
-  {% csrf_token %}
+<!-- ── Top bar ── -->
+<div class="detail-topbar" style="display:flex;align-items:center;gap:10px;">
+  <a href="{% url 'inquiry_list' %}" class="back-btn" id="backBtn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+  <span class="price-timestamp" id="priceTimestamp"></span>
+  <button class="price-info-btn" onclick="openInfoModal()" type="button">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="8.5" stroke-width="2.5"/>
+      <line x1="12" y1="11" x2="12" y2="16"/>
+    </svg>
+  </button>
+</div>
 
-  <label class="form-label">Table Number</label>
-  <input class="form-control mb-3" name="table_num" type="number" value="1" min="1">
+<!-- ══════════════════════════════════════
+     VIEW 1: CREATE REQUEST
+     ══════════════════════════════════════ -->
+<div id="createView">
 
-  <label class="form-label">Customer Name (optional)</label>
-  <input class="form-control mb-3" name="customer_name" type="text" maxlength="50">
-
-  <div class="d-grid">
-    <button class="btn btn-success">Create Order</button>
+  <div class="page-header" style="padding-bottom:0.5rem;">
+    <h1 class="page-title">Request</h1>
   </div>
-</form>
+
+  <div class="create-tab-row">
+    <a href="{% url 'inquiry_create' %}" class="create-tab">Inquire</a>
+    <span class="create-tab active">Order</span>
+  </div>
+
+  <div class="cr-filter-row" style="margin-top:1rem;">
+    <div class="cr-cat-dropdown-wrap">
+      <select class="cr-cat-dropdown" id="catDropdown" onchange="filterByCategory()">
+        <option value="all">Category</option>
+        <option value="meats">Meats</option>
+        <option value="alacarte">Ala Carte</option>
+        <option value="drinks">Drinks</option>
+        <option value="extras">Extras</option>
+      </select>
+      <svg class="cr-dropdown-chevron" width="16" height="16" viewBox="0 0 24 24"
+           fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round">
+        <polyline points="6,9 12,15 18,9"/>
+      </svg>
+    </div>
+    <button class="cr-search-toggle" onclick="toggleSearch()" title="Search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="#888" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="searchBarWrap" style="display:none;padding:0 1.25rem 0.75rem;">
+    <div class="search-wrapper">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" class="search-input w-100" id="searchInput"
+             placeholder="Search food" oninput="filterBySearch()">
+    </div>
+  </div>
+
+  <script>
+    const COOKING_STYLES = {{ cooking_styles_json|safe }};
+    const VARIED_MENU_ITEMS = {{ varied_items_json|safe }};
+  </script>
+
+  <div class="cr-item-list" id="itemList">
+    <p class="cr-section-header" data-cat="meats">Meats</p>
+    {% for meat in meats %}
+    <div class="cr-card" data-cat="meats" data-name="{{ meat.meat_type|lower }}" data-id="meat-{{ meat.meat_id }}"
+         data-meat-id="{{ meat.meat_id }}"
+         data-meat-name="{{ meat.meat_type|escapejs }}"
+         data-meat-img="{% if meat.meat_image %}{{ meat.meat_image.url }}{% endif %}"
+         data-meat-price="{{ meat.current_price|floatformat:0 }}">
+      <div class="cr-card-img">
+        {% if meat.meat_image %}<img src="{{ meat.meat_image.url }}" alt="">{% endif %}
+      </div>
+      <div class="cr-card-info">
+        <p class="cr-card-name">{{ meat.meat_type }}</p>
+        <p class="cr-card-price">₱{{ meat.current_price|floatformat:2 }}</p>
+      </div>
+      <div class="cr-card-right">
+        <span class="cr-card-qty" id="qty-meat-{{ meat.meat_id }}" style="display:none;"></span>
+        <button class="cr-add-fab" type="button"
+                onclick="openVariedModal(
+                  {{ meat.meat_id }},
+                  '{{ meat.meat_type|escapejs }}',
+                  '{% if meat.meat_image %}{{ meat.meat_image.url }}{% endif %}',
+                  '{{ meat.meat_description|default:""|escapejs }}',
+                  {{ meat.current_price|floatformat:0 }},
+                  null,
+                  null,
+                  false
+                )">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="var(--black)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if alacarte_items %}
+    <p class="cr-section-header" data-cat="alacarte">Ala Carte</p>
+    {% for item in alacarte_items %}
+    <div class="cr-card" data-cat="alacarte" data-name="{{ item.item_name|lower }}">
+      <div class="cr-card-img"></div>
+      <div class="cr-card-info">
+        <p class="cr-card-name">{{ item.item_name }}</p>
+        <p class="cr-card-price">₱{{ item.fixed_price|floatformat:2 }}</p>
+      </div>
+      <div class="cr-card-right">
+        <span class="cr-card-qty" id="qty-fixed-{{ item.fixed_item_id }}" style="display:none;"></span>
+        <button class="cr-add-fab" type="button"
+                onclick="openFixedModal({{ item.fixed_item_id }},'{{ item.item_name|escapejs }}',{{ item.fixed_price }},'{{ item.item_description|default:""|escapejs }}',false)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="var(--black)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if drink_items %}
+    <p class="cr-section-header" data-cat="drinks">Drinks</p>
+    {% for item in drink_items %}
+    <div class="cr-card" data-cat="drinks" data-name="{{ item.item_name|lower }}">
+      <div class="cr-card-img"></div>
+      <div class="cr-card-info">
+        <p class="cr-card-name">{{ item.item_name }}</p>
+        <p class="cr-card-price">₱{{ item.fixed_price|floatformat:2 }}</p>
+      </div>
+      <div class="cr-card-right">
+        <span class="cr-card-qty" id="qty-fixed-{{ item.fixed_item_id }}" style="display:none;"></span>
+        <button class="cr-add-fab" type="button"
+                onclick="openFixedModal({{ item.fixed_item_id }},'{{ item.item_name|escapejs }}',{{ item.fixed_price }},'{{ item.item_description|default:""|escapejs }}',false)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="var(--black)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if extra_items %}
+    <p class="cr-section-header" data-cat="extras">Extras</p>
+    {% for item in extra_items %}
+    <div class="cr-card" data-cat="extras" data-name="{{ item.item_name|lower }}">
+      <div class="cr-card-img"></div>
+      <div class="cr-card-info">
+        <p class="cr-card-name">{{ item.item_name }}</p>
+        <p class="cr-card-price">₱{{ item.fixed_price|floatformat:2 }}</p>
+      </div>
+      <div class="cr-card-right">
+        <span class="cr-card-qty" id="qty-fixed-{{ item.fixed_item_id }}" style="display:none;"></span>
+        <button class="cr-add-fab" type="button"
+                onclick="openFixedModal({{ item.fixed_item_id }},'{{ item.item_name|escapejs }}',{{ item.fixed_price }},'{{ item.item_description|default:""|escapejs }}',false)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="var(--black)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="create-btn-row">
+    <button type="button" id="viewOrderBtn" class="create-submit-btn" disabled onclick="showSummary()">
+      View Order
+    </button>
+  </div>
+
+</div>
+
+<div id="summaryView" style="display:none;">
+  <div class="sum-customer-row" style="margin-top: 1.2rem;">
+    <input class="sum-customer-input" id="customerNameInput" type="text"
+           placeholder="Enter customer name" maxlength="50">
+  </div>
+
+  <div class="sum-customer-row" style="margin-top: 1.2rem;">
+    <input class="sum-customer-input" id="tableNumberInput" type="text"
+           placeholder="Enter table number" maxlength="50">
+  </div>
+
+  <div class="sum-card" style="margin-top: 1.2rem;">
+    <div class="sum-card-header">
+      <p class="sum-card-title">Order Summary</p>
+      <button class="sum-add-items-btn" onclick="showCreate()" type="button">Add items</button>
+    </div>
+
+    <div id="summaryItems"></div>
+
+    <hr style="border:none;border-top:1px solid #eee;margin:1rem 0 0.75rem;">
+
+    <div class="sum-subtotal-row">
+      <span class="sum-subtotal-label">Subtotal</span>
+      <span class="sum-subtotal-val" id="subtotalVal">₱ 0.00</span>
+    </div>
+    <div class="sum-subtotal-row">
+      <span class="sum-subtotal-label">VAT</span>
+      <span class="sum-subtotal-val">0.00</span>
+    </div>
+
+    <p class="cr-validation" id="summaryError" style="display:none;margin-top:8px;">
+      Please enter a customer name.</p>
+  </div>
+
+  <div class="sum-sticky-bar">
+    <div class="sum-total-row">
+      <span class="sum-total-label">Total Amount</span>
+      <span class="sum-total-val" id="totalVal">₱ 0.00</span>
+    </div>
+    <button class="sum-place-btn" onclick="placeOrder()">Place Order</button>
+  </div>
+
+  <form id="orderForm" method="post" action="{% url 'order_create' %}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="customer_name" id="formCustomerName">
+    <input type="hidden" name="table_num" value="1">
+    <input type="hidden" name="items_json" id="formItemsJson">
+  </form>
+</div>
+
+<div class="inq-modal-overlay" id="variedModal" style="display:none;" onclick="closeVariedModal()">
+  <div class="cr-full-modal" onclick="event.stopPropagation()">
+    <div class="cr-full-modal-img" id="variedModalImg">
+      <button class="cr-full-modal-close" onclick="closeVariedModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#666" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="cr-full-modal-body">
+      <div class="cr-full-modal-header">
+        <p class="cr-full-modal-name" id="variedModalName"></p>
+        <p class="cr-full-modal-price" id="variedModalPrice"></p>
+      </div>
+      <p class="cr-full-modal-desc" id="variedModalDesc"></p>
+      <div class="cr-full-modal-select-wrap">
+        <select class="cr-full-modal-select" id="variedModalStyle">
+          <option value="">Select cooking Style</option>
+        </select>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#888" stroke-width="2.5" stroke-linecap="round"
+             style="position:absolute;right:14px;pointer-events:none;">
+          <polyline points="6,9 12,15 18,9"/>
+        </svg>
+      </div>
+
+      <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
+        <input type="checkbox" id="variedModalByom">
+        <label for="variedModalByom" style="font-weight:600; color:#444;">Bring your own meat (BYOM)</label>
+      </div>
+
+      <div class="cr-weight-stepper" style="padding:1.25rem 0;">
+        <button class="cr-stepper-btn cr-stepper-minus" onclick="stepWeight(-1)" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <span class="cr-weight-display" id="variedModalWeight">1 kg</span>
+        <button class="cr-stepper-btn cr-stepper-plus" onclick="stepWeight(1)" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+      <p class="cr-validation" id="variedModalError" style="display:none;">
+        Please select a cooking style.</p>
+      <button class="cr-full-modal-add-btn" id="variedModalAddBtn" onclick="addVariedItem()">
+        Add to Order
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="inq-modal-overlay" id="fixedModal" style="display:none;" onclick="closeFixedModal()">
+  <div class="cr-full-modal" onclick="event.stopPropagation()">
+    <div class="cr-full-modal-img">
+      <button class="cr-full-modal-close" onclick="closeFixedModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#666" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="cr-full-modal-body">
+      <div class="cr-full-modal-header">
+        <p class="cr-full-modal-name" id="fixedModalName"></p>
+        <p class="cr-full-modal-price" id="fixedModalPrice"></p>
+      </div>
+      <p class="cr-full-modal-desc" id="fixedModalDesc"></p>
+      <div class="cr-weight-stepper" style="padding:1.25rem 0;">
+        <button class="cr-stepper-btn cr-stepper-minus" onclick="stepFixed(-1)" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <span class="cr-weight-display" id="fixedModalQty">1</span>
+        <button class="cr-stepper-btn cr-stepper-plus" onclick="stepFixed(1)" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+      <button class="cr-full-modal-add-btn" id="fixedModalAddBtn" onclick="addFixedItem()">
+        Add to Order
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="inq-modal-overlay" id="infoModal" style="display:none;" onclick="closeInfoModal()">
+  <div class="info-modal-sheet" onclick="event.stopPropagation()">
+    <div class="info-modal-handle"></div>
+    <p class="info-modal-title">Meat Prices</p>
+    <p class="info-modal-body">
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
+      ut labore et dolore magna aliqua.
+    </p>
+    <p class="info-modal-body" style="margin-top:8px;">
+      This is calculated from the time at which a price is updated on the Price Dashboard.
+    </p>
+    <button class="info-modal-btn" onclick="closeInfoModal()">Got It</button>
+  </div>
+</div>
+
+<script>
+const cartItems = [];
+let currentMeatId = null, currentMeatName = '', currentMeatBasePrice = 0, currentWeight = 1;
+let currentFixedId = null, currentFixedName = '', currentFixedPrice = 0, currentFixedQty = 1;
+let editingKey = null;
+
+(function() {
+  const now = new Date();
+  let h = now.getHours(), m = now.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  const ms = m < 10 ? '0' + m : m;
+  document.getElementById('priceTimestamp').textContent =
+    'Meat prices calculated at ' + h + ':' + ms + ' ' + ampm;
+})();
+
+function toggleSearch() {
+  const wrap = document.getElementById('searchBarWrap');
+  const input = document.getElementById('searchInput');
+  const isHidden = wrap.style.display === 'none';
+  wrap.style.display = isHidden ? '' : 'none';
+  if (isHidden) { input.focus(); input.value = ''; filterBySearch(); }
+  else { input.value = ''; filterBySearch(); }
+}
+function filterByCategory() {
+  const cat = document.getElementById('catDropdown').value;
+  document.querySelectorAll('.cr-card').forEach(c => {
+    c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+  });
+  refreshHeaders();
+}
+function filterBySearch() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('.cr-card').forEach(c => {
+    c.style.display = c.dataset.name.includes(q) ? '' : 'none';
+  });
+  refreshHeaders();
+}
+function refreshHeaders() {
+  document.querySelectorAll('.cr-section-header').forEach(h => {
+    const hasVisible = [...document.querySelectorAll(`.cr-card[data-cat="${h.dataset.cat}"]`)]
+      .some(c => c.style.display !== 'none');
+    h.style.display = hasVisible ? '' : 'none';
+  });
+}
+
+function openInfoModal() { document.getElementById('infoModal').style.display = 'flex'; }
+function closeInfoModal() { document.getElementById('infoModal').style.display = 'none'; }
+
+function getVariedOptionsForMeat(meatId) {
+  return VARIED_MENU_ITEMS.filter(v => v.meat_id === meatId);
+}
+
+function openVariedModal(meatId, name, imgUrl, desc, basePrice, preStyleId, preWeight, isEdit) {
+  currentMeatId = meatId;
+  currentMeatName = name;
+  currentMeatBasePrice = Number(basePrice || 0);
+  currentWeight = preWeight || 1;
+  editingKey = null;
+
+  document.getElementById('variedModalName').textContent = name;
+  document.getElementById('variedModalDesc').textContent = desc || '';
+  document.getElementById('variedModalDesc').style.display = desc ? '' : 'none';
+  document.getElementById('variedModalWeight').textContent = currentWeight + ' kg';
+  document.getElementById('variedModalError').style.display = 'none';
+  document.getElementById('variedModalAddBtn').textContent = isEdit ? 'Update Order' : 'Add to Order';
+
+  const imgEl = document.getElementById('variedModalImg');
+  imgEl.style.backgroundImage = imgUrl ? `url(${imgUrl})` : '';
+  imgEl.style.backgroundSize = 'cover';
+  imgEl.style.backgroundPosition = 'center';
+
+  const byomCheckbox = document.getElementById('variedModalByom');
+  let preIsByom = false;
+
+  if (isEdit) {
+    const existing = cartItems.find(i => i.meatId === meatId && i.styleId === preStyleId);
+    preIsByom = existing ? !!existing.is_byom : false;
+    editingKey = existing ? existing.key : null;
+  }
+
+  byomCheckbox.checked = preIsByom;
+
+  function populateStyles() {
+    const styleSelect = document.getElementById('variedModalStyle');
+    styleSelect.innerHTML = '<option value="">Select cooking Style</option>';
+
+    const options = getVariedOptionsForMeat(meatId);
+    options.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.style_id;
+      opt.textContent = v.style_name;
+      opt.dataset.addOnPrice = v.add_on_price;
+      opt.dataset.isByom = v.is_byom ? '1' : '0';
+      if (preStyleId && v.style_id === preStyleId) opt.selected = true;
+      styleSelect.appendChild(opt);
+    });
+
+    updateVariedModalDisplayedPrice();
+    styleSelect.onchange = updateVariedModalDisplayedPrice;
+  }
+
+  byomCheckbox.onchange = populateStyles;
+  populateStyles();
+
+  document.getElementById('variedModal').style.display = 'flex';
+}
+
+function updateVariedModalDisplayedPrice() {
+  const styleSelect = document.getElementById('variedModalStyle');
+  const byomCheckbox = document.getElementById('variedModalByom');
+
+  let addOn = 0;
+  if (styleSelect && styleSelect.value) {
+    addOn = parseFloat(styleSelect.options[styleSelect.selectedIndex].dataset.addOnPrice || 0);
+  }
+
+  const meatPart = byomCheckbox && byomCheckbox.checked ? 0 : currentMeatBasePrice;
+  const totalPerKg = meatPart + addOn;
+  document.getElementById('variedModalPrice').textContent = '₱' + totalPerKg.toFixed(2) + '/kg';
+}
+
+function closeVariedModal() { document.getElementById('variedModal').style.display = 'none'; }
+function stepWeight(delta) {
+  currentWeight = Math.max(0, currentWeight + delta);
+  document.getElementById('variedModalWeight').textContent = currentWeight + ' kg';
+}
+
+function addVariedItem() {
+  const style = document.getElementById('variedModalStyle');
+  const byomCheckbox = document.getElementById('variedModalByom');
+  const err = document.getElementById('variedModalError');
+  if (!style.value) { err.style.display = ''; return; }
+
+  const styleId = parseInt(style.value);
+  const styleName = style.options[style.selectedIndex].textContent;
+  const addOnPrice = parseFloat(style.options[style.selectedIndex].dataset.addOnPrice) || 0;
+  const isByom = !!(byomCheckbox && byomCheckbox.checked);
+
+  const meatPart = isByom ? 0 : currentMeatBasePrice;
+  const totalPerKg = meatPart + addOnPrice;
+  const key = 'varied-' + currentMeatId + '-' + styleId + '-' + (isByom ? 'byom' : 'regular');
+
+  if (currentWeight === 0) {
+    const idx = cartItems.findIndex(i => i.key === key || i.key === editingKey);
+    if (idx > -1) cartItems.splice(idx, 1);
+    const qtyEl = document.getElementById('qty-meat-' + currentMeatId);
+    if (qtyEl) { qtyEl.style.display = 'none'; }
+    closeVariedModal();
+    if (document.getElementById('summaryView').style.display !== 'none') renderSummary();
+    updateViewOrderBtn();
+    return;
+  }
+
+  const existIdx = cartItems.findIndex(i => i.key === key || i.key === editingKey);
+  if (existIdx > -1) cartItems.splice(existIdx, 1);
+
+  cartItems.push({
+    type: 'varied',
+    key,
+    name: currentMeatName,
+    meatId: currentMeatId,
+    styleId,
+    styleName,
+    basePrice: currentMeatBasePrice,
+    displayBasePrice: meatPart,
+    addOnPrice: addOnPrice,
+    price: totalPerKg,
+    weight: currentWeight,
+    qty: currentWeight,
+    is_byom: isByom
+  });
+
+  const qtyEl = document.getElementById('qty-meat-' + currentMeatId);
+  if (qtyEl) { qtyEl.textContent = currentWeight + ' kg'; qtyEl.style.display = ''; }
+
+  closeVariedModal();
+  updateViewOrderBtn();
+  if (document.getElementById('summaryView').style.display !== 'none') renderSummary();
+}
+
+function openFixedModal(fixedId, name, price, desc, isEdit) {
+  currentFixedId = fixedId;
+  currentFixedName = name;
+  currentFixedPrice = price;
+  currentFixedQty = isEdit
+    ? (cartItems.find(i => i.key === 'fixed-' + fixedId)?.qty || 1)
+    : 1;
+  editingKey = isEdit ? ('fixed-' + fixedId) : null;
+
+  document.getElementById('fixedModalName').textContent = name;
+  document.getElementById('fixedModalPrice').textContent = '₱' + price.toFixed(2);
+  document.getElementById('fixedModalDesc').textContent = desc || '';
+  document.getElementById('fixedModalDesc').style.display = desc ? '' : 'none';
+  document.getElementById('fixedModalQty').textContent = currentFixedQty;
+  document.getElementById('fixedModalAddBtn').textContent = isEdit ? 'Update Order' : 'Add to Order';
+  document.getElementById('fixedModal').style.display = 'flex';
+}
+function closeFixedModal() { document.getElementById('fixedModal').style.display = 'none'; }
+function stepFixed(delta) {
+  currentFixedQty = Math.max(0, currentFixedQty + delta);
+  document.getElementById('fixedModalQty').textContent = currentFixedQty;
+}
+function addFixedItem() {
+  const key = 'fixed-' + currentFixedId;
+  if (currentFixedQty === 0) {
+    const idx = cartItems.findIndex(i => i.key === key);
+    if (idx > -1) cartItems.splice(idx, 1);
+    const qtyEl = document.getElementById('qty-fixed-' + currentFixedId);
+    if (qtyEl) qtyEl.style.display = 'none';
+    closeFixedModal();
+    if (document.getElementById('summaryView').style.display !== 'none') renderSummary();
+    updateViewOrderBtn();
+    return;
+  }
+  const existIdx = cartItems.findIndex(i => i.key === key);
+  if (existIdx > -1) cartItems.splice(existIdx, 1);
+  cartItems.push({ type:'fixed', key, name:currentFixedName,
+    fixedId:currentFixedId, price:currentFixedPrice, qty:currentFixedQty });
+  const qtyEl = document.getElementById('qty-fixed-' + currentFixedId);
+  if (qtyEl) { qtyEl.textContent = currentFixedQty + 'x'; qtyEl.style.display = ''; }
+  closeFixedModal();
+  updateViewOrderBtn();
+  if (document.getElementById('summaryView').style.display !== 'none') renderSummary();
+}
+
+function updateViewOrderBtn() {
+  const btn = document.getElementById('viewOrderBtn');
+  btn.disabled = cartItems.length === 0;
+  btn.classList.toggle('create-submit-btn-active', cartItems.length > 0);
+}
+
+function showSummary() {
+  document.getElementById('createView').style.display = 'none';
+  document.getElementById('summaryView').style.display = '';
+  document.getElementById('backBtn').onclick = (e) => { e.preventDefault(); showCreate(); };
+  renderSummary();
+}
+function showCreate() {
+  document.getElementById('summaryView').style.display = 'none';
+  document.getElementById('createView').style.display = '';
+  document.getElementById('backBtn').onclick = null;
+  document.getElementById('backBtn').href = "{% url 'inquiry_list' %}";
+}
+
+function renderSummary() {
+  const container = document.getElementById('summaryItems');
+  container.innerHTML = '';
+  let total = 0;
+
+  cartItems.forEach((item, idx) => {
+    const subtotal = item.type === 'varied'
+      ? item.price * item.weight
+      : item.price * item.qty;
+    total += subtotal;
+
+    const row = document.createElement('div');
+    row.className = 'sum-item-row';
+
+    if (item.type === 'varied') {
+      row.innerHTML = `
+        <div class="sum-item-thumb"></div>
+        <div class="sum-item-main">
+          <div class="sum-item-top">
+            <div>
+              <p class="sum-item-name">${item.name}</p>
+              <p class="sum-item-sub">${item.styleName}</p>
+            </div>
+            <div class="sum-item-prices">
+              <p class="sum-item-price">${item.displayBasePrice.toFixed(2)}</p>
+              <p class="sum-item-charge">${item.addOnPrice.toFixed(2)}</p>
+            </div>
+          </div>
+          <div class="sum-item-bottom">
+            <button class="sum-edit-btn" onclick="editVariedItem('${item.key}')">Edit</button>
+            <div class="sum-weight-pill" id="wpill-${idx}" onclick="toggleWeightInput(${idx}, '${item.key}', 'varied')">
+              <span id="wval-${idx}">${item.weight}</span>
+              <span class="sum-weight-unit"> kg</span>
+            </div>
+            <div class="sum-weight-stepper" id="wstepper-${idx}" style="display:none;">
+              <button class="sum-step-btn" onclick="summaryStep(${idx},'${item.key}',-1,'varied')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <input class="sum-weight-input" id="winput-${idx}" type="number" value="${item.weight}"
+                     step="1" min="0"
+                     onblur="summaryWeightBlur(${idx},'${item.key}','varied')"
+                     onclick="this.select()">
+              <button class="sum-step-btn" onclick="summaryStep(${idx},'${item.key}',1,'varied')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      row.innerHTML = `
+        <div class="sum-item-thumb"></div>
+        <div class="sum-item-main">
+          <div class="sum-item-top">
+            <div>
+              <p class="sum-item-name">${item.name}</p>
+              <p class="sum-item-sub">Fixed item</p>
+            </div>
+            <div class="sum-item-prices">
+              <p class="sum-item-price">${(item.price * item.qty).toFixed(2)}</p>
+              <p class="sum-item-charge">${item.price.toFixed(2)}</p>
+            </div>
+          </div>
+          <div class="sum-item-bottom">
+            <button class="sum-edit-btn" onclick="editFixedItem('${item.key}')">Edit</button>
+            <div class="sum-weight-pill" id="wpill-${idx}" onclick="toggleWeightInput(${idx}, '${item.key}', 'fixed')">
+              <span id="wval-${idx}">${item.qty}</span>
+              <span class="sum-weight-unit"> pc</span>
+            </div>
+            <div class="sum-weight-stepper" id="wstepper-${idx}" style="display:none;">
+              <button class="sum-step-btn" onclick="summaryStep(${idx},'${item.key}',-1,'fixed')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <input class="sum-weight-input" id="winput-${idx}" type="number" value="${item.qty}"
+                     step="1" min="0"
+                     onblur="summaryWeightBlur(${idx},'${item.key}','fixed')"
+                     onclick="this.select()">
+              <button class="sum-step-btn" onclick="summaryStep(${idx},'${item.key}',1,'fixed')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }
+    container.appendChild(row);
+  });
+
+  document.getElementById('subtotalVal').textContent = '₱ ' + total.toFixed(2);
+  document.getElementById('totalVal').textContent = '₱ ' + total.toFixed(2);
+}
+
+function toggleWeightInput(idx, key, type) {
+  const pill = document.getElementById('wpill-' + idx);
+  const stepper = document.getElementById('wstepper-' + idx);
+  const isShowing = stepper.style.display !== 'none';
+
+  document.querySelectorAll('.sum-weight-pill').forEach(p => p.style.display = '');
+  document.querySelectorAll('.sum-weight-stepper').forEach(s => s.style.display = 'none');
+
+  if (!isShowing) {
+    pill.style.display = 'none';
+    stepper.style.display = 'flex';
+    document.getElementById('winput-' + idx).focus();
+  }
+}
+
+function summaryStep(idx, key, delta, type) {
+  const input = document.getElementById('winput-' + idx);
+  let val = parseFloat(input.value) || 0;
+  val = Math.max(0, val + delta);
+  input.value = val;
+  updateItemQty(key, val, type);
+  document.getElementById('wval-' + idx).textContent = val;
+}
+
+function summaryWeightBlur(idx, key, type) {
+  const input = document.getElementById('winput-' + idx);
+  const val = parseFloat(input.value) || 0;
+  updateItemQty(key, val, type);
+  document.getElementById('wval-' + idx).textContent = val;
+  document.getElementById('wpill-' + idx).style.display = '';
+  document.getElementById('wstepper-' + idx).style.display = 'none';
+
+  if (val === 0) {
+    const idx2 = cartItems.findIndex(i => i.key === key);
+    if (idx2 > -1) cartItems.splice(idx2, 1);
+    updateViewOrderBtn();
+  }
+  renderSummary();
+}
+
+function updateItemQty(key, val, type) {
+  const item = cartItems.find(i => i.key === key);
+  if (!item) return;
+  if (type === 'varied') item.weight = val;
+  else item.qty = val;
+}
+
+function editVariedItem(key) {
+  const item = cartItems.find(i => i.key === key);
+  if (!item) return;
+  openVariedModal(item.meatId, item.name, '', '', item.basePrice, item.styleId, item.weight, true);
+}
+
+function editFixedItem(key) {
+  const item = cartItems.find(i => i.key === key);
+  if (!item) return;
+  openFixedModal(item.fixedId, item.name, item.price, '', true);
+}
+
+function placeOrder() {
+  const name = document.getElementById('customerNameInput').value.trim();
+  const table_num = document.getElementById('tableNumberInput').value.trim();
+
+  if (!name) {
+    document.getElementById('summaryError').style.display = '';
+    return;
+  }
+
+  document.getElementById('summaryError').style.display = '';
+
+  document.getElementById('formCustomerName').value = name;
+  document.getElementById('formItemsJson').value = JSON.stringify(cartItems);
+
+  document.querySelector('input[name="table_num"]').value = table_num;
+
+  document.getElementById('orderForm').submit();
+}
+</script>
+
 {% endblock %}

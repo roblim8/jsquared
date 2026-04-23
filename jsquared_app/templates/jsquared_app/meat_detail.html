@@ -1,0 +1,185 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<!-- Back nav -->
+<div class="detail-topbar">
+  <a href="{% url 'home' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<!-- Main card -->
+<div class="detail-card">
+
+  <!-- Image -->
+  <div class="detail-image">
+    {% if item.meat_image %}
+      <img src="{{ item.meat_image.url }}" alt="{{ item.meat_type }}">
+    {% endif %}
+  </div>
+
+  <form method="post" action="{% url 'meat_detail' item.meat_id %}" id="editForm">
+    {% csrf_token %}
+
+    <!-- Name + Price -->
+    <div class="detail-header">
+
+      <!-- VIEW mode -->
+      <h1 class="detail-name" id="viewName">{{ item.meat_type }}</h1>
+
+      <!-- EDIT mode -->
+      <div class="detail-edit-field" id="editNameWrap" style="display:none;">
+        <label class="adm-field-label">Meat Name</label>
+        <input type="text" name="meat_type" id="editName"
+               class="adm-field-input" value="{{ item.meat_type }}"
+               oninput="checkChanges()">
+      </div>
+
+      {% if item.item_status == 'Available' %}
+        <p class="detail-price">₱ {{ item.current_price|floatformat:0 }}/kg</p>
+      {% elif item.item_status == 'Out of Stock' %}
+        <p class="detail-price out-of-stock">Out of Stock</p>
+      {% else %}
+        <p class="detail-price discontinued">Discontinued</p>
+      {% endif %}
+    </div>
+
+    <!-- Description -->
+    <div id="viewDesc">
+      {% if item.meat_description %}
+        <p class="detail-description">{{ item.meat_description }}</p>
+      {% else %}
+        <p class="detail-description muted-text">No description available.</p>
+      {% endif %}
+    </div>
+    <div class="detail-edit-field" id="editDescWrap" style="display:none;">
+      <label class="adm-field-label" style="margin-left: 1.2rem">Description</label>
+      <textarea name="meat_description" id="editDesc"
+                class="adm-field-input detail-edit-textarea"
+                oninput="checkChanges()">{{ item.meat_description|default:'' }}</textarea>
+    </div>
+
+    <hr class="detail-divider">
+
+    <!-- Meta info -->
+    <div class="detail-meta">
+
+      <!-- Weight Range -->
+      <div class="detail-meta-row">
+        <span class="meta-label">Weight Range</span>
+        <!-- VIEW -->
+        <span class="meta-value" id="viewWeights">
+          {{ item.weight_min }} kg – {{ item.weight_max }} kg
+        </span>
+        <!-- EDIT -->
+        <div id="editWeightsWrap" style="display:none;" class="detail-weight-inputs">
+          <input type="number" name="weight_min" id="editWeightMin"
+                 class="detail-weight-input" value="{{ item.weight_min }}"
+                 step="0.1" min="0" oninput="checkChanges()">
+          <span class="detail-weight-sep">–</span>
+          <input type="number" name="weight_max" id="editWeightMax"
+                 class="detail-weight-input" value="{{ item.weight_max }}"
+                 step="0.1" min="0" oninput="checkChanges()">
+          <span class="meta-label" style="margin-left:4px;">g</span>
+        </div>
+      </div>
+
+      <div class="detail-meta-row">
+        <span class="meta-label">Item Status</span>
+        <span class="meta-value
+          {% if item.item_status == 'Available' %}meta-available
+          {% elif item.item_status == 'Out of Stock' %}meta-oos
+          {% else %}meta-disc{% endif %}">
+          {{ item.item_status }}
+        </span>
+      </div>
+
+      <div class="detail-meta-row">
+        <span class="meta-label">Date Updated</span>
+        <span class="meta-value">{{ item.price_updated_at|date:"n/j/Y H:i" }}</span>
+      </div>
+
+    </div>
+
+  </form>
+
+</div>
+
+<!-- Actions -->
+{% if is_manager or is_staff %}
+<div class="detail-actions" id="actionBar">
+
+  <!-- Edit button (default) -->
+  <button type="button" class="edit-btn" id="editBtn" onclick="enterEditMode()">
+    Edit
+  </button>
+
+  <!-- Save + Cancel (shown in edit mode) -->
+  <div id="editActions" style="display:none;" class="od-actions">
+    <button type="button" class="od-btn-cancel" onclick="cancelEdit()">Cancel Edit</button>
+    <button form="editForm" class="create-submit-btn"
+        id="saveBtn" disabled>
+      Save Changes
+    </button>
+  </div>
+</div>
+
+</div>
+{% endif %}
+
+<script>
+const ORIG = {
+  name:      "{{ item.meat_type|escapejs }}",
+  desc:      "{{ item.meat_description|default:""|escapejs }}",
+  weightMin: {{ item.weight_min }},
+  weightMax: {{ item.weight_max }},
+};
+
+function enterEditMode() {
+  document.getElementById('viewName').style.display      = 'none';
+  document.getElementById('editNameWrap').style.display  = '';
+  document.getElementById('viewDesc').style.display      = 'none';
+  document.getElementById('editDescWrap').style.display  = '';
+  document.getElementById('viewWeights').style.display   = 'none';
+  document.getElementById('editWeightsWrap').style.display = '';
+  document.getElementById('editBtn').style.display       = 'none';
+  document.getElementById('editActions').style.display   = '';
+  checkChanges();
+}
+
+function cancelEdit() {
+  document.getElementById('viewName').style.display      = '';
+  document.getElementById('editNameWrap').style.display  = 'none';
+  document.getElementById('viewDesc').style.display      = '';
+  document.getElementById('editDescWrap').style.display  = 'none';
+  document.getElementById('viewWeights').style.display   = '';
+  document.getElementById('editWeightsWrap').style.display = 'none';
+  document.getElementById('editName').value      = ORIG.name;
+  document.getElementById('editDesc').value      = ORIG.desc;
+  document.getElementById('editWeightMin').value = ORIG.weightMin;
+  document.getElementById('editWeightMax').value = ORIG.weightMax;
+  document.getElementById('editBtn').style.display    = '';
+  document.getElementById('editActions').style.display = 'none';
+}
+
+function checkChanges() {
+  const hasChanges =
+    document.getElementById('editName').value.trim()           !== ORIG.name      ||
+    document.getElementById('editDesc').value.trim()           !== ORIG.desc      ||
+    parseFloat(document.getElementById('editWeightMin').value) !== ORIG.weightMin ||
+    parseFloat(document.getElementById('editWeightMax').value) !== ORIG.weightMax;
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = !hasChanges;
+  saveBtn.classList.toggle('create-submit-btn-active', hasChanges);
+}
+</script>
+
+{% endblock %}

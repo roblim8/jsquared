@@ -1,0 +1,323 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar no-print">
+  <a href="{% url 'order_history' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }} no-print">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<style>
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .od-card { box-shadow: none !important; border: none !important; margin: 0 !important; }
+}
+</style>
+
+<div class="od-card" style="margin-top:1rem;">
+  <div class="od-card-top" style="align-items:center; margin-bottom:6px;">
+    <p class="od-order-id">Order #{{ order.order_id|stringformat:"03d" }}</p>
+    {% if order.order_status == 'Cancelled' %}
+      <span style="cursor:pointer; display:inline-block; min-width:94px; text-align:center; padding:6px 12px; border-radius:999px; background:#bfbfbf; color:#fff; font-weight:700; font-size:12px;">CANCELLED</span>
+    {% elif order.payment_status == 'Paid' %}
+      <span id="toggle-payment-btn" style="cursor:pointer;display:inline-block; min-width:78px; text-align:center; padding:6px 12px; border-radius:999px; background:#46a314; color:#fff; font-weight:700; font-size:12px;">PAID</span>
+    {% else %}
+      <span id="toggle-payment-btn" style="cursor:pointer; display:inline-block; min-width:78px; text-align:center; padding:6px 12px; border-radius:999px; background:#ff4a4a; color:#fff; font-weight:700; font-size:12px;">UNPAID</span>
+    {% endif %}
+  </div>
+
+  <div style="color:#888; font-size:14px; margin-bottom:14px;">
+    Ordered by {{ order.customer_name|default:"—" }}
+    <span style="margin-left:10px; color:#555;">
+      • Table {{ order.table_num|default:"—" }}
+    </span>
+  </div>
+
+  <div class="no-print" style="display:{% if order.payment_status == 'Unpaid' %}block{% else %}none{% endif %};margin-bottom:18px; padding:18px; border:1px solid #e5e5df; border-radius:18px; background:#fff;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:12px;" class="no-print">
+      <h3 style="margin:0 0 14px 0; font-size:22px;">Order Breakdown</h3>
+      <button type="button" id="toggle-discount-btn" style="border:none; width: 140px; background:#f0e600; color:#111; border-radius:14px; padding:10px 16px; font-weight:700;">+ Discount</button>
+    </div>
+
+    <div class="od-items" style="margin-top:0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Item & Style</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for it in order.items.all %}
+          <tr>
+            <td>
+              <div>
+                {% if it.fixed_item %}
+                  {{ it.fixed_item.item_name }}
+                {% elif it.varied_item %}
+                  {{ it.varied_item.meat.meat_type }}
+                {% endif %}
+              </div>
+
+              <div style="color:#777; font-size:13px;">
+                {% if it.fixed_item %}
+                  {{ it.fixed_item.item_category|default:"" }}
+                {% elif it.varied_item %}
+                  {{ it.varied_item.cooking_style.style_name }}
+                {% endif %}
+              </div>
+
+              <div style="color:#999; font-size:12px;">
+                {{ it.order_quantity }} {% if it.varied_item %}kg{% endif %}
+              </div>
+            </td>
+
+            <td>₱ {{ it.subtotal|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="discount-panel" class="no-print" style="display:{% if order.discount_id %}block{% else %}none{% endif %}; margin-bottom:18px; padding:18px; border:1px solid #e5e5df; border-radius:18px; background:#fff;">
+    <form method="post" action="{% url 'order_update_discount' order.order_id %}">
+      {% csrf_token %}
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div>
+          <label style="display:block; font-weight:600; margin-bottom:8px;">Discount type</label>
+          <select name="discount_id" id="discount-id" class="form-input" style="width:100%;">
+            <option value="">No discount</option>
+            {% for d in discounts %}
+              {% if d.discount_type == "Senior Citizen" %}
+              {% elif d.discount_type == "PWD" %}
+                <option value="{{ d.discount_id }}" data-type="{{ d.discount_type }}"
+                  {% if order.discount_id == d.discount_id or order.discount.discount_type == "Senior Citizen" %}selected{% endif %}>
+                  Senior/PWD (20%)
+                </option>
+              {% elif d.discount_type == "Suki" %}
+                <option value="{{ d.discount_id }}" data-type="{{ d.discount_type }}" {% if order.discount_id == d.discount_id %}selected{% endif %}>
+                  Suki
+                </option>
+              {% else %}
+                <option value="{{ d.discount_id }}" data-type="{{ d.discount_type }}" {% if order.discount_id == d.discount_id %}selected{% endif %}>
+                  {{ d.discount_type }} ({{ d.discount_value|floatformat:0 }}%)
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label style="display:block; font-weight:600; margin-bottom:8px;">Total diners</label>
+          <input type="number" min="1" name="diner_count" value="{{ order.diner_count|default:1 }}" class="form-input" style="width:100%;">
+        </div>
+
+        <div id="pwd-count-wrap">
+          <label style="display:block; font-weight:600; margin-bottom:8px;">PWD diners</label>
+          <input type="number" min="0" name="pwd_count" value="{{ order.pwd_count|default:0 }}" class="form-input" style="width:100%;">
+        </div>
+
+        <div id="senior-count-wrap">
+          <label style="display:block; font-weight:600; margin-bottom:8px;">Senior diners</label>
+          <input type="number" min="0" name="senior_count" value="{{ order.senior_count|default:0 }}" class="form-input" style="width:100%;">
+        </div>
+      </div>
+
+      <div id="suki-percent-wrap" style="margin-top:14px; display:none;">
+        <label style="display:block; font-weight:600; margin-bottom:8px;">Suki discount</label>
+        <input type="number" min="0" step="0.01" name="suki_discount_percent"
+               value="{{ order.suki_discount_percent|default_if_none:'' }}"
+               class="form-input" style="width:220px;" placeholder="Enter custom %">
+      </div>
+
+      <button type="submit" class="card-btn btn-green" style="margin-top:16px; width:auto; width: 100%;">Save discount</button>
+    </form>
+  </div>
+
+  {% if order.order_status != 'Cancelled' %}
+  <div id="payment-panel" class="no-print" style="display:none; margin-bottom:18px; padding:18px; border:1px solid #e5e5df; border-radius:18px; background:#fff;">
+    <h3 style="margin:0 0 14px 0; font-size:22px;">Payment</h3>
+    <form method="post" action="{% url 'order_update_payment' order.order_id %}">
+      {% csrf_token %}
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div>
+          <label style="display:block; font-weight:600; margin-bottom:8px;">Payment status</label>
+          <select name="payment_status" class="form-input" style="width:100%;">
+            <option value="Unpaid" {% if order.payment_status == 'Unpaid' %}selected{% endif %}>Unpaid</option>
+            <option value="Paid" {% if order.payment_status == 'Paid' %}selected{% endif %}>Paid</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; font-weight:600; margin-bottom:8px;">Payment method</label>
+          <select name="payment_method" class="form-input" style="width:100%;">
+            <option value="Cash" {% if order.payment_method == 'Cash' %}selected{% endif %}>Cash</option>
+            <option value="Card" {% if order.payment_method == 'Card' %}selected{% endif %}>Card</option>
+            <option value="Online payment" {% if order.payment_method == 'Online payment' %}selected{% endif %}>Online payment</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="card-btn btn-green" style="margin-top:16px; width:auto; width: 100%;">Save payment</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div style="padding:18px; border:1px solid #e5e5df; border-radius:18px; background:#fff;">
+    <h3 style="margin:0 0 14px 0; font-size:22px;">Receipt Breakdown</h3>
+
+    {% if order.discount %}
+    <div style="margin-bottom:14px; padding:12px 14px; background:#fafaf7; border:1px solid #ecece4; border-radius:14px;">
+      <div style="font-weight:700; margin-bottom:6px;">Discount details</div>
+
+      {% if order.discount.discount_type == "Suki" %}
+        <div>Discount type: Suki</div>
+        <div>Applied rate: {{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</div>
+      {% else %}
+        <div>Discount type: Senior/PWD</div>
+        <div>Total diners: {{ order.diner_count }}</div>
+        <div>PWD diners: {{ discount_breakdown.pwd_count }}</div>
+        <div>Senior diners: {{ discount_breakdown.senior_count }}</div>
+        <div>Total eligible diners: {{ discount_breakdown.eligible_people_total }}</div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <table>
+      <hr>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th style="margin-left: 1rem;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Meat charge</td>
+          <td>₱ {{ discount_breakdown.meat_charge_total|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>Cooking charge</td>
+          <td>₱ {{ discount_breakdown.cooking_charge_total|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>Fixed items</td>
+          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <th>Gross total</th>
+          <td>₱ {{ discount_breakdown.gross_total|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>Discountable base</td>
+          <td>₱ {{ discount_breakdown.discountable_base|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>Eligible amount</td>
+          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>Fixed items</td>
+          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2 }}</td>
+        </tr>
+        {% if order.discount and order.discount.discount_type != "Suki" %}
+        <tr>
+          <td>VATable sales</td>
+          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>VAT exempt</td>
+          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td>20% portion</td>
+          <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2 }}</td>
+        </tr>
+        {% elif order.discount and order.discount.discount_type == "Suki" %}
+        <tr>
+          <td>Suki rate</td>
+          <td>{{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td>Total discount</td>
+          <td>₱ {{ discount_breakdown.discount_total|floatformat:2 }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+  <div class="od-total-row" style="margin-top:18px; padding-top:12px; border-top:1px solid #d7d7d1;">
+    <span class="od-total-label" style="font-size:20px;">Total Amount</span>
+    <span class="od-total-value" style="font-size:20px; color:#3e9b08; font-weight:800;">₱ {{ discount_breakdown.final_total|floatformat:2 }}</span>
+  </div>
+
+  <div class="no-print" style="margin-top:18px; display:flex; justify-content:flex-end;">
+    <button type="button" onclick="window.print()" class="card-btn" style="background:#d8e9f5; color:#222; width: 100%;">Print breakdown</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const toggleBtn = document.getElementById('toggle-discount-btn');
+  const panel = document.getElementById('discount-panel');
+  const discountSelect = document.getElementById('discount-id');
+  const pwdWrap = document.getElementById('pwd-count-wrap');
+  const seniorWrap = document.getElementById('senior-count-wrap');
+  const sukiWrap = document.getElementById('suki-percent-wrap');
+  const paymentBtn = document.getElementById('toggle-payment-btn');
+  const paymentPanel = document.getElementById('payment-panel');
+
+  if (paymentBtn && paymentPanel) {
+    paymentBtn.addEventListener('click', function() {
+      const isHidden = window.getComputedStyle(paymentPanel).display === 'none';
+      paymentPanel.style.display = isHidden ? 'block' : 'none';
+    });
+  } 
+
+  if (paymentPanel && "{{ order.payment_status }}" === "Unpaid") {
+    paymentPanel.style.display = "block";
+  }
+
+  function updateDiscountFields() {
+    if (!discountSelect) return;
+
+    const selectedOption = discountSelect.options[discountSelect.selectedIndex];
+    const selectedText = (selectedOption.text || "").toLowerCase();
+
+    const isSuki = selectedText.includes("suki");
+    const hasDiscount = discountSelect.value !== "";
+
+    if (pwdWrap) pwdWrap.style.display = (!isSuki && hasDiscount) ? "block" : "none";
+    if (seniorWrap) seniorWrap.style.display = (!isSuki && hasDiscount) ? "block" : "none";
+    if (sukiWrap) sukiWrap.style.display = (isSuki && hasDiscount) ? "block" : "none";
+  }
+
+  if (toggleBtn && panel) {
+    toggleBtn.addEventListener('click', function() {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+
+  if (discountSelect) {
+    discountSelect.addEventListener('change', updateDiscountFields);
+    updateDiscountFields();
+  }
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "jsquared_app/base.html" %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar">
+  <a href="{% url 'admin_console' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header">
+  <h1 class="page-title">Audit Logs</h1>
+</div>
+
+
+<div class="container py-4">
+  <form method="get" class="mb-3">
+    <input class="form-control" name="q" value="{{ q }}" placeholder="Search by staff name or action">
+  </form>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Staff</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at|date:'Y-m-d H:i:s' }}</td>
+          <td>{{ log.username|default:'—' }}</td>
+          <td>{{ log.simple_action }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center">No logs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

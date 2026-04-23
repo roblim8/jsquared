@@ -1,65 +1,661 @@
+
 {% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <div>
-    <div class="fw-semibold">Order #{{ order.order_id }}</div>
-    <div class="text-muted small">
-      Table {{ order.table_num }}{% if order.customer_name %} • {{ order.customer_name }}{% endif %}
-    </div>
-  </div>
-  <div class="fw-bold fs-5">₱{{ order.total_amount|floatformat:2 }}</div>
-</div>
+<style>
+  .od-actions{
+    display:flex;
+    gap:16px;
+  }
 
-<div class="d-grid mb-3">
-  <a class="btn btn-outline-danger"
-     href="{% url 'order_delete' order.order_id %}">
-    Delete Order
+  .od-actions > *,
+  .od-actions form{
+    flex:1;
+    min-width:0;
+    margin:0;
+  }
+
+  .od-btn-cancel,
+  .od-btn-accept-match,
+  .od-btn-complete{
+    width:100%;
+    height:64px;              
+    border-radius:22px;
+    box-sizing:border-box;
+  }
+
+  .od-weight-input-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#d9e6f2;
+    border-radius:18px;
+
+    width:120px;              
+    height:52px;              
+
+    padding:0 14px;
+    overflow:hidden;          
+  }
+
+  .od-weight-input{
+    width:52px;               
+    border:none;
+    outline:none;
+    background:transparent;
+
+    font-size:18px;
+    font-weight:500;
+    color:#111;
+
+    appearance:textfield;
+    -moz-appearance:textfield;
+    -webkit-appearance:none;
+  }
+
+  .od-weight-input::-webkit-outer-spin-button,
+  .od-weight-input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+  }
+
+  .od-weight-unit{
+    font-size:16px;
+    font-weight:700;
+    color:#111;
+    flex-shrink:0;
+  }
+
+  .od-item-price-live{
+    margin-top:2px;
+    color:#8a8a8a;
+  }
+  .od-weight-pill input{
+  width:40px;
+  border:none;
+  background:transparent;
+  font-weight:700;
+  font-size:18px;
+  outline:none;
+  appearance:textfield;
+}
+
+.od-weight-pill input::-webkit-inner-spin-button,
+.od-weight-pill input::-webkit-outer-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
+.od-supplier-pill:disabled {
+  background: #e0e0e0 !important;
+  color: #aaa !important;
+  cursor: not-allowed !important;
+  border: 1px solid #ccc !important;
+}
+</style>
+
+<!-- Back -->
+<div class="detail-topbar">
+  <a href="{% url 'order_list' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
   </a>
 </div>
 
-<form method="post" class="card card-body mb-3">
-  {% csrf_token %}
+<!-- ══════════════════════════════════════
+     PENDING MODE
+     ══════════════════════════════════════ -->
+{% if order.order_status == 'Pending' %}
 
-  <label class="form-label">Add Item</label>
-  <select class="form-select mb-2" name="menu_item_id" required>
-    {% for m in menu_items %}
-      <option value="{{ m.menu_item_id }}">{{ m.item_name }} ({{ m.pricing_type }})</option>
-    {% endfor %}
-  </select>
+<div class="od-card">
 
-  <label class="form-label">Quantity</label>
-  <input class="form-control mb-3" name="order_quantity" type="number" value="1" min="1">
-
-  <div class="d-grid">
-    <button class="btn btn-primary">Add to Order</button>
+  <!-- Order ID -->
+  <div class="od-card-top">
+    <p class="od-order-id">Order ID #{{ order.order_id|stringformat:"03d" }}</p>
+    <span class="od-status-badge od-badge-pending">Pending</span>
+    <button class="od-add-item-btn" onclick="toggleAddForm()" type="button">+</button>
   </div>
-</form>
 
-<h6 class="mb-2">Items</h6>
-<ul class="list-group">
-  {% for it in order.items.all %}
-    <li class="list-group-item">
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <div class="fw-semibold">{{ it.menu_item.item_name }}</div>
-          <div class="text-muted small">
-            {{ it.order_quantity }} × ₱{{ it.unit_price|floatformat:2 }}
-          </div>
-        </div>
+  <div class="od-card-meta">
+    <div>
+      <span class="od-meta-label">Customer</span>
+      <span class="od-meta-value">{{ order.customer_name|default:"—" }}</span>
+    </div>
+    <div class="od-meta-center">
+      <span class="od-meta-label">Table number</span>
+      <span class="od-meta-value">#{{ order.table_num|default:"—" }}</span>
+    </div>
+    <div style="text-align:right;">
+      <span class="od-meta-label">Placed on</span>
+      <span class="od-meta-value">{{ order.created_at|date:"h:i A" }}</span>
+    </div>
+  </div>
 
-        <div class="text-end">
-          <div class="fw-bold">₱{{ it.subtotal|floatformat:2 }}</div>
-          <a class="btn btn-sm btn-outline-danger mt-1"
-             href="{% url 'order_item_delete' order.order_id it.order_item_id %}">
-            Remove
-          </a>
-        </div>
+  <!-- Add item form -->
+  <div id="addItemForm" style="display:none;" class="od-add-form">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="add_item">
+
+      <select class="od-select" name="menu_item_key" id="menuItemSelect" required>
+        {% for m in menu_items %}
+          <option value="{{ m.key }}" data-pricing="{{ m.pricing_type }}">{{ m.label }}</option>
+        {% endfor %}
+      </select>
+
+      <div id="byomWrapper" style="display:none;" class="od-byom">
+        <label class="od-byom-label">
+          <input type="checkbox" name="is_byom" value="1" id="byomToggle"> Bring your own meat (BYOM)
+        </label>
       </div>
-    </li>
-  {% empty %}
-    <li class="list-group-item text-muted">No items yet.</li>
-  {% endfor %}
-</ul>
+
+      <div class="od-qty-row">
+        <label class="od-qty-label">Qty (kg)</label>
+        <input class="od-qty-input" name="order_quantity" type="number" value="1" min="0" step="any" required>
+      </div>
+
+      <button type="submit" class="card-btn btn-green" style="width:100%;margin-top:10px;">Add</button>
+    </form>
+  </div>
+
+  <!-- Column headers -->
+  <div class="od-col-headers od-col-pending">
+    <span></span>
+    <span>Item & Style</span>
+    <!-- <span>Style</span> -->
+    <span>Price/kg</span>
+    <span style="padding:0 30px;">Weight</span>
+  </div>
+
+  <!-- Items -->
+  <form id="acceptOrderForm" method="post" action="{% url 'order_accept' order.order_id %}">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="accept_order">
+
+    <div class="od-items">
+      {% for it in order.items.all %}
+      <div class="od-item od-item-pending"
+           data-item-id="{{ it.order_item_id }}"
+           data-is-varied="{% if it.varied_item %}1{% else %}0{% endif %}"
+           data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0 }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
+           data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0 }}{% else %}0{% endif %}">
+
+        <a href="{% url 'order_item_delete' order.order_id it.order_item_id %}" class="od-remove-btn">
+          <svg width="22" height="22" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="11" fill="#FF383C"/>
+            <line x1="7" y1="12" x2="17" y2="12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </a>
+
+        <div class="od-item-info">
+          <p class="od-item-name">
+            {% if it.fixed_item %}{{ it.fixed_item.item_name }}
+            {% elif it.varied_item %}{{ it.varied_item.meat.meat_type }}
+            {% endif %}
+          </p>
+          <p class="od-item-sub">
+            {% if it.fixed_item %}{{ it.fixed_item.item_category|default:"" }}
+            {% elif it.varied_item %}{{ it.varied_item.cooking_style.style_name }}
+            {% endif %}
+          </p>
+        </div>
+
+        <!-- Item Image 
+        <div class="od-style-img">
+          {% if it.varied_item and it.varied_item.meat.meat_image %}
+            <img src="{{ it.varied_item.meat.meat_image.url }}" alt="">
+          {% endif %}
+        </div>
+        -->
+
+        {% if it.fixed_item %}
+          <div class="od-item-price-wrap">
+            <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0 }}</p>
+          </div>
+
+          <div class="od-weight-input-wrap" style="background:#efefef; margin-left: 30px;">
+            <input
+              class="od-weight-input js-weight-input"
+              type="number"
+              name="weight_{{ it.order_item_id }}"
+              value="{{ it.order_quantity|default:1 }}"
+              min="1"
+              step="1"
+              readonly
+            >
+            <span class="od-weight-unit">pc</span>
+          </div>
+
+        {% elif it.varied_item %}
+          <div class="od-item-price-wrap">
+            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:0 }}</p>
+            <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0 }}</p>
+          </div>
+
+          <div class="od-weight-input-wrap" style="margin-left: 30px;">
+            <input
+              class="od-weight-input js-weight-input"
+              type="number"
+              name="weight_{{ it.order_item_id }}"
+              value="{{ it.order_quantity|default:'' }}"
+              min="0"
+              step="any"
+              inputmode="decimal"
+              placeholder="1"
+              oninput="recalculatePendingTotal()"
+            >
+            <span class="od-weight-unit">kg</span>
+          </div>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="od-empty">No items yet. Tap "+ Add item" to begin.</p>
+      {% endfor %}
+    </div>
+  </form>
+
+  <hr class="od-divider">
+  <div class="od-total-row">
+    <span class="od-total-label">Total amount</span>
+    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:0 }}</span>
+  </div>
+
+</div>
+
+<div class="od-actions">
+  <a href="{% url 'order_delete' order.order_id %}" style="margin:0;">
+    <button type="submit" class="od-btn-cancel">Delete order</button>
+  </a>
+  <form method="post" action="{% url 'order_accept' order.order_id %}" style="margin:0;">
+    {% csrf_token %}
+    <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()" style="border: none; font-weight: bold;">Accept order</button>
+  </form>
+</div>
+
+<!-- ══════════════════════════════════════
+     PREPARING MODE 
+     ══════════════════════════════════════ -->
+
+{% elif order.order_status == 'Preparing' %}
+
+<!-- ── Staff profile card ── -->
+<div class="od-staff-card">
+  <div class="od-staff-avatar">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+         stroke="#bbb" stroke-width="1.5" stroke-linecap="round">
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+    </svg>
+  </div>
+  <div class="od-staff-info">
+    <p class="od-staff-name-sm">{{ order.staff.staff_name }}</p>
+    <p class="od-staff-location">At the Market</p>
+  </div>
+</div>
+
+<div class="od-card">
+  <div class="od-card-top">
+    <p class="od-order-id">Order ID #{{ order.order_id|stringformat:"03d" }}</p>
+    <span class="od-status-badge od-badge-preparing">Preparing</span>
+  </div>
+  <div class="od-card-meta">
+    <div>
+      <span class="od-meta-label">Customer</span>
+      <span class="od-meta-value">{{ order.customer_name|default:"—" }}</span>
+    </div>
+    <div class="od-meta-center">
+      <span class="od-meta-label">Table number</span>
+      <span class="od-meta-value">#{{ order.table_num|default:"—" }}</span>
+    </div>
+    <div style="text-align:right;">
+      <span class="od-meta-label">Placed on</span>
+      <span class="od-meta-value">{{ order.created_at|date:"h:i A" }}</span>
+    </div>
+  </div>
+
+  <!-- Column headers -->
+  <div class="od-col-headers od-col-preparing">
+    <span></span>
+    <span>Item &amp; Amount</span>
+    <span>Total Price</span>
+    <span>Supplier</span>
+  </div>
+
+  <!-- Items with checklist -->
+  <div class="od-items" id="orderItems">
+    {% for it in order.items.all %}
+    <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0">
+      <button class="od-check" onclick="toggleCheck(this)" type="button">
+        <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+        </svg>
+        <svg class="od-check-filled" viewBox="0 0 24 24" style="display:none;">
+          <circle cx="12" cy="12" r="10" fill="#2E8B1F"/>
+          <polyline points="8,12 11,15 16,9" stroke="#fff" stroke-width="2.5"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="od-item-info">
+        <p class="od-item-name">
+          {{ it.order_quantity }}kg
+          {% if it.fixed_item %}{{ it.fixed_item.item_name }}
+          {% elif it.varied_item %}{{ it.varied_item.meat.meat_type }}
+          {% endif %}
+        </p>
+        <p class="od-item-sub">
+          {% if it.fixed_item %}{{ it.fixed_item.item_category|default:"" }}
+          {% elif it.varied_item %}{{ it.varied_item.cooking_style.style_name }}
+          {% endif %}
+        </p>
+      </div>
+
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
+
+      <button class="od-supplier-pill" type="button"
+              data-item-id="{{ it.order_item_id }}"
+              data-item-name="{% if it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
+              data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
+              data-requires-supplier="{% if it.varied_item and not it.is_effective_byom %}1{% else %}0{% endif %}"
+              data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
+              onclick="openSupplierModal(this)"
+              {% if not it.varied_item or it.is_effective_byom %}disabled{% endif %}>
+        {% if it.fixed_item or it.is_effective_byom %}
+          None
+        {% elif it.supplier %}
+          {{ it.supplier.supplier_name }}
+        {% else %}
+          Select
+        {% endif %}
+        <span id="supplierListUrl" data-url="{% url 'supplier_list' %}"></span>
+      </button>
+    </div>
+    {% empty %}
+    <p class="od-empty">No items on this order.</p>
+    {% endfor %}
+  </div>
+
+  <hr class="od-divider">
+  <div class="od-total-row">
+    <span class="od-total-label">Total amount</span>
+    <span class="od-total-value" style="color: green">₱ {{ order.total_amount|floatformat:0 }}</span>
+  </div>
+
+</div>
+
+<div class="od-actions">
+  <form method="post" action="{% url 'order_cancel' order.order_id %}" style="margin:0;">
+    {% csrf_token %}
+    <button type="submit" class="od-btn-cancel">Cancel order</button>
+  </form>
+  <form method="post" action="{% url 'order_serve' order.order_id %}" style="margin:0;">
+    {% csrf_token %}
+    <button class="od-btn-complete" id="completeBtn" disabled type="submit">Complete order</button>
+  </form>
+</div>
+
+<!-- Supplier modal -->
+<div class="od-modal-overlay" id="supplierModal" style="display:none;" onclick="closeSupplierModal()">
+  <div class="od-modal" onclick="event.stopPropagation()">
+    <p class="od-modal-title">Supplier</p>
+    <p class="od-modal-body" id="supplierModalBody"></p>
+    <a id="changeSupplierBtn" href="#"
+       class="card-btn btn-yellow" style="width:100%;display:block;text-align:center;margin-bottom:8px;">
+      Change supplier
+    </a>
+    <button class="card-btn btn-green" onclick="closeSupplierModal()" style="width:100%;">Close</button>
+  </div>
+</div>
+
+{% elif order.order_status == 'Served' %}
+
+<div class="od-card">
+  <div class="od-card-top">
+    <p class="od-order-id">Order ID #{{ order.order_id|stringformat:"03d" }}</p>
+    <span class="od-status-badge od-badge-served">Served</span>
+  </div>
+  <p class="od-empty" style="margin:0;">Redirecting to checkout...</p>
+</div>
+
+{% else %}
+
+<div class="od-card">
+  <div class="od-card-top">
+    <p class="od-order-id">Order ID #{{ order.order_id|stringformat:"03d" }}</p>
+    <span class="od-status-badge
+      {% if order.order_status == 'Completed' %}od-badge-completed
+      {% elif order.order_status == 'Cancelled' %}od-badge-cancelled
+      {% endif %}">{{ order.order_status }}</span>
+  </div>
+  <div class="od-card-meta">
+    <div>
+      <span class="od-meta-label">Customer</span>
+      <span class="od-meta-value">{{ order.customer_name|default:"—" }}</span>
+    </div>
+    <div>
+      <span class="od-meta-label">Placed on</span>
+      <span class="od-meta-value">{{ order.created_at|date:"h:i A" }}</span>
+    </div>
+  </div>
+  <div class="od-items">
+    {% for it in order.items.all %}
+    <div class="od-item od-item-preparing">
+      <div></div>
+      <div class="od-item-info">
+        <p class="od-item-name">
+          {{ it.order_quantity }}kg
+          {% if it.fixed_item %}{{ it.fixed_item.item_name }}
+          {% elif it.varied_item %}{{ it.varied_item.meat.meat_type }}{% endif %}
+        </p>
+        <p class="od-item-sub">
+          {% if it.varied_item %}{{ it.varied_item.cooking_style.style_name }}{% endif %}
+        </p>
+      </div>
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
+      <div></div>
+    </div>
+    {% endfor %}
+  </div>
+  <hr class="od-divider">
+  <div class="od-total-row">
+    <span class="od-total-label">Total amount</span>
+    <span class="od-total-value">₱ {{ order.total_amount|floatformat:0 }}</span>
+  </div>
+  <div style="margin-top:12px;">
+    <p><strong>Payment status:</strong> {{ order.payment_status }}</p>
+    <p><strong>Payment method:</strong> {{ order.payment_method }}</p>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+
+function toggleCheck(btn) {
+  const item = btn.closest('.od-item-preparing');
+  const empty  = btn.querySelector('.od-check-empty');
+  const filled = btn.querySelector('.od-check-filled');
+  const checked = item.dataset.checked === '1';
+  item.dataset.checked = checked ? '0' : '1';
+  empty.style.display  = checked ? '' : 'none';
+  filled.style.display = checked ? 'none' : '';
+  item.classList.toggle('od-item-checked', !checked);
+  // Enable/disable supplier button logic
+  const supplierBtn = item.querySelector('.od-supplier-pill');
+  if (supplierBtn) {
+    const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
+    supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+  }
+  updateCompleteBtn();
+  saveCheckedState();
+}
+
+function saveCheckedState() {
+  // Save checked item IDs to sessionStorage
+  const items = document.querySelectorAll('.od-item-preparing');
+  const checkedIds = Array.from(items)
+    .filter(i => i.dataset.checked === '1')
+    .map(i => i.dataset.itemId);
+  sessionStorage.setItem('checkedOrderItems', JSON.stringify(checkedIds));
+}
+
+function restoreCheckedState() {
+  const checkedIds = JSON.parse(sessionStorage.getItem('checkedOrderItems') || '[]');
+  const items = document.querySelectorAll('.od-item-preparing');
+  items.forEach(item => {
+    if (checkedIds.includes(item.dataset.itemId)) {
+      item.dataset.checked = '1';
+      item.classList.add('od-item-checked');
+      const empty = item.querySelector('.od-check-empty');
+      const filled = item.querySelector('.od-check-filled');
+      if (empty && filled) {
+        empty.style.display = 'none';
+        filled.style.display = '';
+      }
+      const supplierBtn = item.querySelector('.od-supplier-pill');
+      if (supplierBtn) {
+        const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
+        supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+      }
+    }
+  });
+}
+
+function updateCompleteBtn() {
+  const items = document.querySelectorAll('.od-item-preparing');
+  const btn = document.getElementById('completeBtn');
+  if (!btn || !items.length) return;
+  const allChecked = [...items].every(i => i.dataset.checked === '1');
+  const allRequiredSuppliersAssigned = [...items].every(i => {
+    const supplierBtn = i.querySelector('.od-supplier-pill');
+    if (!supplierBtn || supplierBtn.dataset.requiresSupplier !== '1') return true;
+    const currentLabel = (supplierBtn.textContent || '').trim().toLowerCase();
+    return currentLabel && currentLabel !== 'select';
+  });
+  const canComplete = allChecked && allRequiredSuppliersAssigned;
+  btn.disabled = !canComplete;
+  btn.classList.toggle('od-btn-complete-ready', canComplete);
+}
+
+function toggleAddForm() {
+  const form = document.getElementById('addItemForm');
+  if (form) form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+function saveChanges() {
+  window.location.href = "{% url 'order_list' %}";
+}
+
+function acceptOrder() {
+  recalculatePendingTotal();
+  const form = document.getElementById('acceptOrderForm');
+  if (form) form.submit();
+}
+
+(function () {
+  const select = document.getElementById("menuItemSelect");
+  const wrap   = document.getElementById("byomWrapper");
+  const toggle = document.getElementById("byomToggle");
+  if (!select) return;
+  function updateByom() {
+    const isVaried = (select.options[select.selectedIndex]
+      .getAttribute("data-pricing") || "").toUpperCase() === "V";
+    wrap.style.display = isVaried ? "" : "none";
+    if (!isVaried && toggle) toggle.checked = false;
+  }
+  select.addEventListener("change", updateByom);
+  updateByom();
+})();
+
+function formatPeso(value) {
+  const rounded = Math.round(Number(value) || 0);
+  return "₱ " + rounded;
+}
+
+function recalculatePendingTotal() {
+  const rows = document.querySelectorAll('.od-item-pending');
+  let total = 0;
+
+  rows.forEach(row => {
+    const isVaried = row.dataset.isVaried === '1';
+    const unitPrice = parseFloat(row.dataset.unitPrice || 0);
+    const cookingCharge = parseFloat(row.dataset.cookingCharge || 0);
+    const weightInput = row.querySelector('.js-weight-input');
+
+    if (!weightInput) return;
+
+    let qty = parseFloat(weightInput.value);
+
+    if (isNaN(qty) || qty <= 0) {
+      qty = 0;
+    }
+
+    let rowTotal = 0;
+
+    if (isVaried) {
+      rowTotal = qty * (unitPrice + cookingCharge);
+    } else {
+      rowTotal = qty * unitPrice;
+    }
+
+    total += rowTotal;
+  });
+
+  const totalNode = document.getElementById('pendingTotalValue');
+  if (totalNode) {
+    totalNode.textContent = formatPeso(total);
+  }
+}
+
+function openSupplierModal(btn) {
+  const itemId = btn.dataset.itemId;
+  const supplierName = btn.dataset.supplierName || '';
+  if (btn.dataset.isByom === '1') { return; }
+
+  if (supplierName) {
+    document.getElementById('supplierModalBody').innerHTML = '<strong>' + supplierName + '</strong>';
+
+    const baseUrl = document.getElementById('supplierListUrl').dataset.url;
+    document.getElementById('changeSupplierBtn').href =
+      baseUrl + '?order_item_id=' + itemId + '&return_url=' +
+      encodeURIComponent(window.location.pathname);
+
+    document.getElementById('supplierModal').style.display = 'flex';
+  } else {
+    const baseUrl = document.getElementById('supplierListUrl').dataset.url;
+
+    document.getElementById('changeSupplierBtn').href =
+      baseUrl + '?order_item_id=' + itemId + '&return_url=' +
+      encodeURIComponent(window.location.pathname);
+
+    window.location.href =
+      baseUrl + '?order_item_id=' + itemId +
+      '&return_url=' + encodeURIComponent(window.location.pathname);
+  }
+}
+
+function closeSupplierModal() {
+  document.getElementById('supplierModal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  recalculatePendingTotal();
+  restoreCheckedState();
+  document.querySelectorAll('.od-item-preparing').forEach(item => {
+    const supplierBtn = item.querySelector('.od-supplier-pill');
+    if (supplierBtn) {
+      const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
+      supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+    }
+  });
+  updateCompleteBtn();
+});
+</script>
 
 {% endblock %}

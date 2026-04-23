@@ -1,0 +1,178 @@
+{% extends "jsquared_app/base.html" %}
+{% load static %}
+{% block bottom_nav %}{% endblock %}
+{% block content %}
+
+<div class="detail-topbar">
+  <a href="{% url 'inquiry_list' %}" class="back-btn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"/>
+      <polyline points="12,19 5,12 12,5"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="page-header" style="padding-bottom:0.5rem;">
+  <h1 class="page-title">Request</h1>
+</div>
+
+<!-- Inquiry / Order toggle -->
+<div class="create-tab-row">
+  <span class="create-tab active">Inquire</span>
+  <a href="{% url 'order_create' %}" class="create-tab">Order</a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<!-- Category dropdown + search icon -->
+<div class="cr-filter-row" style="margin-top: 1.2rem;">
+  <input type="text" class="search-input w-100" id="searchInput" placeholder="Search seafood" oninput="filterCards()">
+</div>
+
+<div id="searchBarWrap" style="display:none; padding: 0 1.25rem 0.75rem;">
+  <div class="search-wrapper">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" class="search-input w-100" id="searchInput"
+           placeholder="Search food" oninput="filterBySearch()">
+  </div>
+</div>
+
+<!-- Meat checklist as cards -->
+<form method="post" id="createInquiryForm">
+  {% csrf_token %}
+
+  <div class="cr-item-list" id="itemList">
+    <p class="cr-section-header" data-cat="meats">Select meats</p>
+    {% for meat in meats %}
+    <label class="cr-card cr-inq-card" data-cat="meats" data-name="{{ meat.meat_type|lower }}"
+           id="inq-item-{{ meat.meat_id }}">
+      <input type="checkbox" name="meat_ids" value="{{ meat.meat_id }}"
+             class="cr-inq-checkbox" onchange="onCheckChange(this, {{ meat.meat_id }})" hidden>
+
+      <!-- Radio circle -->
+      <div class="cr-inq-radio" id="radio-{{ meat.meat_id }}"></div>
+
+      <!-- Image -->
+      <div class="cr-card-img">
+        {% if meat.meat_image %}<img src="{{ meat.meat_image.url }}" alt="">{% endif %}
+      </div>
+
+      <!-- Name -->
+      <div class="cr-card-info">
+        <p class="cr-card-name">{{ meat.meat_type }}</p>
+      </div>
+    </label>
+    {% empty %}
+    <div class="empty-state"><p>No meat items available.</p></div>
+    {% endfor %}
+  </div>
+
+  <div class="create-btn-row">
+    <button type="button" id="createBtn" class="create-submit-btn" disabled
+            onclick="openConfirmModal()">
+      Create Inquiry
+    </button>
+  </div>
+</form>
+
+<!-- Confirmation modal -->
+<div class="inq-modal-overlay" id="confirmModal" style="display:none;">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Create price requests?</span>
+      <button class="inq-modal-x" onclick="closeConfirmModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="confirm-list" id="confirmList"></div>
+    <div class="inq-modal-actions">
+      <button class="inq-action-btn inq-btn-red" onclick="closeConfirmModal()">No</button>
+      <button class="inq-action-btn inq-btn-yellow" onclick="submitForm()">Yes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSearch() {
+  const wrap = document.getElementById('searchBarWrap');
+  const input = document.getElementById('searchInput');
+  const isHidden = wrap.style.display === 'none';
+  wrap.style.display = isHidden ? '' : 'none';
+  if (isHidden) { input.focus(); input.value = ''; filterBySearch(); }
+  else { input.value = ''; filterBySearch(); }
+}
+
+function filterByCategory() {
+  const cat = document.getElementById('catDropdown').value;
+  document.querySelectorAll('.cr-inq-card').forEach(c => {
+    c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+  });
+}
+
+function filterBySearch() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('.cr-inq-card').forEach(c => {
+    c.style.display = c.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+function onCheckChange(cb, meatId) {
+  const card = document.getElementById('inq-item-' + meatId);
+  const radio = document.getElementById('radio-' + meatId);
+  if (cb.checked) {
+    card.classList.add('cr-inq-card-selected');
+    radio.classList.add('cr-inq-radio-filled');
+  } else {
+    card.classList.remove('cr-inq-card-selected');
+    radio.classList.remove('cr-inq-radio-filled');
+  }
+  updateCreateBtn();
+}
+
+function updateCreateBtn() {
+  const checked = document.querySelectorAll('.cr-inq-checkbox:checked');
+  const btn = document.getElementById('createBtn');
+  btn.disabled = checked.length === 0;
+  btn.classList.toggle('create-submit-btn-active', checked.length > 0);
+}
+
+function openConfirmModal() {
+  const checked = [...document.querySelectorAll('.cr-inq-checkbox:checked')];
+  if (!checked.length) return;
+
+  const list = document.getElementById('confirmList');
+  list.innerHTML = checked.map(cb => {
+    const card = cb.closest('.cr-inq-card');
+    const name = card.querySelector('.cr-card-name').textContent;
+    const imgEl = card.querySelector('.cr-card-img img');
+    const imgSrc = imgEl ? imgEl.src : '';
+    return `<div class="confirm-row">
+      <div class="confirm-thumb" ${imgSrc ? `style="background:url(${imgSrc}) center/cover"` : ''}></div>
+      <span class="confirm-name">${name}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').style.display = 'none';
+}
+
+function submitForm() {
+  document.getElementById('createInquiryForm').submit();
+}
+</script>
+
+{% endblock %}

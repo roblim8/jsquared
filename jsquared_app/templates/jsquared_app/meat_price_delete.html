@@ -1,0 +1,1 @@
+{% extends "jsquared_app/base.html" %}{% block content %}<div class="container py-5"><div class="card p-4"><h3>Delete Meat Item</h3><p>Delete <strong>{{ m.meat_type }}</strong>?</p><form method="post">{% csrf_token %}<a href="{% url 'meat_price_list' %}" class="btn btn-outline-secondary">Cancel</a> <button class="btn btn-danger">Delete</button></form></div></div>{% endblock %}

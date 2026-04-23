@@ -1,0 +1,32 @@
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<h5 class="mb-3 text-danger">Delete Cooking Style</h5>
+
+<div class="card card-body">
+  <p class="mb-2">
+    Are you sure you want to delete the cooking style  
+    <b>{{ c.style_name }}</b>  
+    under <b>{{ c.meat_item.meat_type }}</b>?
+  </p>
+
+  {% if c.icon %}
+    <div class="mb-3">
+      <img src="{{ c.icon.url }}" style="width: 50px; border-radius: 6px;">
+      <span class="text-muted small ms-2">Current icon</span>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="d-grid gap-2">
+      <button class="btn btn-danger" type="submit">Yes, Delete</button>
+      <a class="btn btn-outline-secondary"
+         href="{% url 'cooking_style_edit' c.pk %}">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
