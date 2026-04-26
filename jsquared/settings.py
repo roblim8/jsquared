@@ -11,14 +11,11 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "jsquared-dgyz.onrender.com",
-]
+ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://jsquared-dgyz.onrender.com",
+    'https://*.railway.app',
+    'https://*.up.railway.app',
 ]
 
 INSTALLED_APPS = [
