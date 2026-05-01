@@ -23,23 +23,58 @@
 
 <div class="page-header">
   <h1 class="page-title">Accounts</h1>
-    <a href="{% url 'account_create' %}" class="add-btn">+ Create</a>
+  <a href="{% url 'account_create' %}" class="add-btn">+ Create</a>
 </div>
 
 <p style="margin-left: 1rem;">Total accounts: {{ accounts|length }}</p>
 
 <div class="list-group" style="margin-top:1rem;">
-  {% for acc in accounts %}
-    <a href="{% url 'account_detail' acc.staff_id %}" class="list-group-item list-group-item-action d-flex align-items-center" style="border-radius: 12px; margin-bottom: 8px;">
-        <div class="flex-grow-1">
-            <div class="fw-semibold">
-            {{ acc.staff_name }}
-            </div>
-            <div class="text-muted">
-            {{ acc.staff_role }}
-            </div>
-        </div>
-    </a>
 
+  <!-- CASHIER -->
+  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Cashier</h5>
+  {% for acc in accounts %}
+    {% if acc.staff_role == "Cashier" %}
+      <a href="{% url 'account_detail' acc.staff_id %}" 
+         class="list-group-item list-group-item-action d-flex align-items-center"
+         style="border-radius: 12px; margin-bottom: 8px;">
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ acc.staff_name }}</div>
+          <div class="text-muted">{{ acc.staff_role }}</div>
+        </div>
+      </a>
+    {% endif %}
   {% endfor %}
+
+  <!-- MANAGER -->
+  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Manager</h5>
+  {% for acc in accounts %}
+    {% if acc.staff_role == "Manager" %}
+      <a href="{% url 'account_detail' acc.staff_id %}" 
+         class="list-group-item list-group-item-action d-flex align-items-center"
+         style="border-radius: 12px; margin-bottom: 8px;">
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ acc.staff_name }}</div>
+          <div class="text-muted">{{ acc.staff_role }}</div>
+        </div>
+      </a>
+    {% endif %}
+  {% endfor %}
+
+  <!-- STAFF -->
+  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Staff</h5>
+  {% for acc in accounts %}
+    {% if acc.staff_role == "Staff" %}
+      <a href="{% url 'account_detail' acc.staff_id %}" 
+         class="list-group-item list-group-item-action d-flex align-items-center"
+         style="border-radius: 12px; margin-bottom: 8px;">
+        <div class="flex-grow-1">
+          <div class="fw-semibold">{{ acc.staff_name }}</div>
+          <div class="text-muted">{{ acc.staff_role }}</div>
+        </div>
+      </a>
+    {% endif %}
+  {% endfor %}
+
+</div>
+
 {% endblock %}

@@ -131,7 +131,7 @@
   <div style="margin-top:1.5rem;display:flex;gap:10px;">
     <button type="button" onclick="openDeleteModal()"
             class="od-btn-cancel" style="flex:1;">
-      Delete Account
+      Disable Account
     </button>
 
     <button type="button" id="editBtn" onclick="enableEdit()"
@@ -148,18 +148,27 @@
   </div>
 </form>
 
-<!-- DELETE CONFIRMATION MODAL -->
+<!--<!-- DELETE CONFIRMATION MODAL -->
 <div class="od-confirm-overlay" id="deleteModal" style="display:none;">
   <div class="od-confirm-box">
-    <p class="od-confirm-title">Delete this account?</p>
-    <p class="od-confirm-sub">This action cannot be undone.</p>
-    <div class="od-confirm-actions">
-      <button type="button" class="od-confirm-no" onclick="closeDeleteModal()">Cancel</button>
+    <p class="od-confirm-title">Disable this account?</p>
+    <p class="od-confirm-sub">
+      Account will no longer be accessible but records associated with this account will remain
+    </p>
 
-      <form method="post" style="flex:1;margin:0;">
+    <div class="od-confirm-actions">
+      <button type="button" class="od-confirm-no" onclick="closeDeleteModal()">
+        Cancel
+      </button>
+
+      <!--PROPER FORM -->
+      <form method="post" action="" style="margin:0;">
         {% csrf_token %}
         <input type="hidden" name="action" value="delete">
-        <button type="submit" class="od-confirm-yes" style="width:100%;">Delete</button>
+
+         <button type="submit" class="od-confirm-yes" style="width:100%;">
+      Disable
+    </button>
       </form>
     </div>
   </div>

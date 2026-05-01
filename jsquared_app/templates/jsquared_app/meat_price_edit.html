@@ -1,1 +1,65 @@
-{% extends "jsquared_app/base.html" %}{% block content %}<div class="container py-4"><h2>Edit Meat Item</h2><form method="post" class="card p-3">{% csrf_token %}<input class="form-control mb-2" name="meat_type" value="{{ m.meat_type }}" required><input class="form-control mb-2" type="number" step="0.01" name="current_price" value="{{ m.current_price }}" required><div class="row"><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="weight_min" value="{{ m.weight_min }}"></div><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="weight_max" value="{{ m.weight_max }}"></div></div><select class="form-select mb-3" name="item_status"><option value="Available" {% if m.item_status == 'Available' %}selected{% endif %}>Available</option><option value="Out of Stock" {% if m.item_status == 'Out of Stock' %}selected{% endif %}>Out of Stock</option><option value="Discontinued" {% if m.item_status == 'Discontinued' %}selected{% endif %}>Discontinued</option></select><button class="btn btn-primary">Save</button></form></div>{% endblock %}
+{% extends "jsquared_app/base.html" %}
+{% block content %}
+
+<div class="container py-4">
+  <h2>Edit Meat Item</h2>
+
+  {% if m.item_status == "Discontinued" %}
+    <div class="alert alert-warning">
+      This meat item is discontinued and archived. Change the status back to Available or Out of Stock only if you want to restore it.
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" class="card p-3">
+    {% csrf_token %}
+
+    <label class="form-label">Meat Type</label>
+    <input class="form-control mb-2" name="meat_type" value="{{ m.meat_type }}" required>
+
+    <label class="form-label">Description</label>
+    <input class="form-control mb-2" name="meat_description" value="{{ m.meat_description|default:'' }}">
+
+    <label class="form-label">Current Price</label>
+    <input class="form-control mb-2" type="number" step="0.01" min="0.01" name="current_price" value="{{ m.current_price }}" required>
+
+    <label class="form-label">Weight Range (kg)</label>
+    <div class="row">
+      <div class="col">
+        <input class="form-control mb-2" type="number" step="0.01" min="0.01" name="weight_min" value="{{ m.weight_min }}" required>
+      </div>
+      <div class="col">
+        <input class="form-control mb-2" type="number" step="0.01" min="0.01" name="weight_max" value="{{ m.weight_max }}" required>
+      </div>
+    </div>
+
+    <small class="text-muted d-block mb-3">
+      Minimum weight should not exceed maximum weight.
+    </small>
+
+    <label class="form-label">Update Image (optional)</label>
+    {% if m.meat_image %}
+      <div class="mb-2">
+        <img src="{{ m.meat_image.url }}" alt="Meat Image" style="width:120px; border-radius:8px;">
+      </div>
+    {% endif %}
+    <input class="form-control mb-3" type="file" name="meat_image" accept=".jpg,.jpeg,.png">
+
+    <label class="form-label">Status</label>
+    <select class="form-select mb-2" name="item_status">
+      <option value="Available" {% if m.item_status == "Available" %}selected{% endif %}>Available</option>
+      <option value="Out of Stock" {% if m.item_status == "Out of Stock" %}selected{% endif %}>Out of Stock</option>
+      <option value="Discontinued" {% if m.item_status == "Discontinued" %}selected{% endif %}>Discontinued</option>
+    </select>
+
+    <small class="text-muted d-block mb-3">
+      Available = can be ordered • Out of Stock = temporarily unavailable • Discontinued = archived and removed from selection.
+    </small>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'meat_price_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

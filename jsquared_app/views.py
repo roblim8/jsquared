@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.db import models
 
@@ -40,9 +40,28 @@ from .models import (
 SESSION_STAFF_ID = "staff_id"
 SESSION_STAFF_ROLE = "staff_role"
 
+# Meat item status rules
+MEAT_STATUS_AVAILABLE = "Available"
+MEAT_STATUS_OUT_OF_STOCK = "Out of Stock"
+MEAT_STATUS_DISCONTINUED = "Discontinued"
+MEAT_EDIT_STATUSES = {MEAT_STATUS_AVAILABLE, MEAT_STATUS_OUT_OF_STOCK, MEAT_STATUS_DISCONTINUED}
+MEAT_MARKET_STATUSES = {MEAT_STATUS_AVAILABLE, MEAT_STATUS_OUT_OF_STOCK}
+
+
+def _normalize_meat_status(value, default=MEAT_STATUS_AVAILABLE):
+    raw = (value or default or MEAT_STATUS_AVAILABLE).strip()
+    normalized = raw.lower().replace("_", " ").replace("-", " ")
+    if normalized in {"available", "avail"}:
+        return MEAT_STATUS_AVAILABLE
+    if normalized in {"out of stock", "outofstock", "unavailable", "not available", "inquire"}:
+        return MEAT_STATUS_OUT_OF_STOCK
+    if normalized in {"discontinued", "archived"}:
+        return MEAT_STATUS_DISCONTINUED
+    return raw
+
 
 def _ensure_varied_items_synced():
-    styles = CookingStyle.objects.select_related("meat_item").exclude(meat_item__isnull=True)
+    styles = CookingStyle.objects.select_related("meat_item").filter(is_active=True).exclude(meat_item__isnull=True)
     for style in styles:
         existing = VariedMenuItem.objects.filter(cooking_style=style, is_byom=False).order_by("varied_item_id")
         if existing.exists():
@@ -69,7 +88,121 @@ def _current_staff(request) -> Staff | None:
     staff_id = request.session.get(SESSION_STAFF_ID)
     if not staff_id:
         return None
-    return Staff.objects.filter(staff_id=staff_id).first()
+    return Staff.objects.filter(staff_id=staff_id, is_active=True).first()
+
+
+def _active(qs):
+    """Return only active records for models that have is_active."""
+    try:
+        return qs.filter(is_active=True)
+    except Exception:
+        return qs
+
+
+def _archive_instance(obj, fields=None):
+    """Soft-delete/archive records instead of hard deleting them."""
+    if hasattr(obj, "archive"):
+        obj.archive()
+        return obj
+
+    update_fields = []
+    if hasattr(obj, "is_active"):
+        obj.is_active = False
+        update_fields.append("is_active")
+    if hasattr(obj, "archived_at"):
+        obj.archived_at = timezone.now()
+        update_fields.append("archived_at")
+
+    if fields:
+        for field, value in fields.items():
+            if hasattr(obj, field):
+                setattr(obj, field, value)
+                update_fields.append(field)
+
+    obj.save(update_fields=list(dict.fromkeys(update_fields)) or None)
+    return obj
+
+
+def _as_float(value, field_label, errors, required=True):
+    raw = (str(value).strip() if value is not None else "")
+    if raw == "":
+        if required:
+            errors.append(f"{field_label} is required.")
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        errors.append(f"{field_label} must be numeric.")
+        return None
+
+
+def _valid_file(upload, field_label, errors):
+    if not upload:
+        return True
+    allowed_exts = (".jpg", ".jpeg", ".png")
+    name = (getattr(upload, "name", "") or "").lower()
+    if not name.endswith(allowed_exts):
+        errors.append(f"{field_label} must be a JPG, JPEG, or PNG file.")
+        return False
+    return True
+
+
+def _message_errors(request, errors):
+    for error in errors:
+        messages.error(request, error)
+
+
+def _audit_actor(request):
+    """Return the active staff member and a readable doer name for audit logs."""
+    staff = _current_staff(request)
+    if not staff:
+        staff_id = request.session.get(SESSION_STAFF_ID) or request.session.get("admin_staff_id")
+        if staff_id:
+            staff = Staff.objects.filter(staff_id=staff_id).first()
+
+    if staff:
+        doer_name = staff.staff_name or staff.staff_email or f"Staff #{staff.staff_id}"
+        if staff.staff_role:
+            doer_name = f"{doer_name} ({staff.staff_role})"
+        return staff, doer_name
+
+    return None, "Unknown user"
+
+
+def log_action(request, details, model_name="", object_repr="", action="WRITE"):
+    """Create a human-readable audit log entry with the name of the doer."""
+    try:
+        staff, doer_name = _audit_actor(request)
+        AuditLog.objects.create(
+            staff=staff,
+            username=doer_name,
+            action=action,
+            path=request.path,
+            method=request.method,
+            model_name=model_name or "",
+            object_repr=str(object_repr or ""),
+            details=details,
+            created_at=timezone.now(),
+        )
+    except Exception:
+        pass
+
+
+def _auditlog_has_archive_field():
+    """Return True if AuditLog has an is_archived field in the current model/migration."""
+    return any(field.name == "is_archived" for field in AuditLog._meta.get_fields())
+
+
+def archive_old_logs(days=30):
+    """Archive audit logs older than the configured number of days without deleting them."""
+    if not _auditlog_has_archive_field():
+        return 0
+
+    cutoff = timezone.now() - timedelta(days=days)
+    return AuditLog.objects.filter(
+        created_at__lt=cutoff,
+        is_archived=False,
+    ).update(is_archived=True)
 
 
 def staff_login_required(view_func):
@@ -98,6 +231,7 @@ def require_roles(*roles: str):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             if not request.session.get(SESSION_STAFF_ID):
+                messages.error(request, "Please log in first.")
                 return redirect("login")
 
             role = request.session.get(SESSION_STAFF_ROLE)
@@ -107,7 +241,8 @@ def require_roles(*roles: str):
                 return view_func(request, *args, **kwargs)
 
             if role not in allowed:
-                return HttpResponseForbidden("Not allowed.")
+                messages.error(request, "Your account does not have permission to access this feature.")
+                return redirect(request.META.get("HTTP_REFERER") or "home")
             return view_func(request, *args, **kwargs)
 
         return wrapper
@@ -139,13 +274,13 @@ def login_view(request):
         request.session.pop("admin_staff_id", None)
 
         # Try login using staff_name first
-        staff = Staff.objects.filter(staff_name=username).first()
+        staff = Staff.objects.filter(staff_name=username, is_active=True).first()
 
         # If not found, try login using Django username through Account
         if not staff:
-            account = Account.objects.select_related("user").filter(user__username=username).first()
+            account = Account.objects.select_related("user").filter(user__username=username, is_active=True, user__is_active=True).first()
             if account:
-                staff = Staff.objects.filter(staff_name=account.staff_name).first()
+                staff = Staff.objects.filter(staff_name=account.staff_name, is_active=True).first()
 
         if not staff:
             messages.error(request, "Invalid username or password.")
@@ -198,17 +333,18 @@ def manager_login(request):
         staff = None
 
         # Try manager login via staff_name
-        possible_staff = Staff.objects.filter(staff_name=username, staff_role="Manager").first()
+        possible_staff = Staff.objects.filter(staff_name=username, staff_role="Manager", is_active=True).first()
         if possible_staff and possible_staff.staff_password == password:
             staff = possible_staff
 
         # If not found, try via Django username linked through Account
         if not staff:
-            account = Account.objects.select_related("user").filter(user__username=username).first()
+            account = Account.objects.select_related("user").filter(user__username=username, is_active=True, user__is_active=True).first()
             if account:
                 possible_staff = Staff.objects.filter(
                     staff_name=account.staff_name,
-                    staff_role="Manager"
+                    staff_role="Manager",
+                    is_active=True
                 ).first()
                 if possible_staff and possible_staff.staff_password == password:
                     staff = possible_staff
@@ -230,9 +366,9 @@ def manager_login(request):
 def admin_console(request):
     _ensure_default_discounts()
     stats = {
-        "accounts": Staff.objects.count(),
-        "suppliers": Supplier.objects.count(),
-        "discounts": Discount.objects.count(),
+        "accounts": Staff.objects.filter(is_active=True).count(),
+        "suppliers": Supplier.objects.filter(is_active=True).count(),
+        "discounts": Discount.objects.filter(is_active=True).count(),
         "audit_logs": AuditLog.objects.count(),
         "completed_orders": Order.objects.filter(order_status__in=["Completed", "Served"]).count(),
     }
@@ -241,16 +377,16 @@ def admin_console(request):
 
 @admin_login_required
 def account_list(request):
-    accounts = Staff.objects.all()
+    accounts = Staff.objects.filter(is_active=True)
     return render(request, "jsquared_app/account_list.html", {"accounts": accounts})
 
 
 @admin_login_required
 def account_detail(request, account_id):
-    account = get_object_or_404(Staff, staff_id=account_id)
+    account = get_object_or_404(Staff, staff_id=account_id, is_active=True)
     errors = []
 
-    linked_account = Account.objects.select_related("user").filter(staff_name=account.staff_name).first()
+    linked_account = Account.objects.select_related("user").filter(staff_name=account.staff_name, is_active=True).first()
     current_username = linked_account.user.username if linked_account and linked_account.user else account.staff_email
 
     if request.method == "POST":
@@ -258,18 +394,15 @@ def account_detail(request, account_id):
 
         if action == "delete":
             if linked_account and linked_account.user:
-                linked_account.user.delete()
-            else:
-                try:
-                    User.objects.get(username=current_username).delete()
-                except User.DoesNotExist:
-                    pass
+                linked_account.user.is_active = False
+                linked_account.user.save(update_fields=["is_active"])
 
             if linked_account:
-                linked_account.delete()
+                _archive_instance(linked_account)
 
-            account.delete()
-            messages.success(request, "Account deleted.")
+            _archive_instance(account)
+            log_action(request, f"Archived account: {account.staff_name}", "Staff", account.staff_name, action="ARCHIVE")
+            messages.success(request, "Account archived. Existing records remain intact.")
             return redirect("account_list")
 
         if action == "save":
@@ -320,6 +453,7 @@ def account_detail(request, account_id):
                             user.set_password(new_pw)
                         user.save()
 
+                log_action(request, f"Updated account: {account.staff_name}", "Staff", account.staff_name, action="UPDATE")
                 messages.success(request, "Account updated.")
                 return redirect("account_detail", account_id=account.staff_id)
 
@@ -332,43 +466,46 @@ def account_detail(request, account_id):
 
 @admin_login_required
 def account_create(request):
-    if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
-        staff_name = request.POST.get("staff_name")
-        role = request.POST.get("role")
-        confirm_password = request.POST.get("confirm_password")
+    valid_roles = {"Staff", "Cashier", "Manager"}
 
-        if password != confirm_password:
-            messages.error(request, "Passwords do not match")
-            return redirect("account_create")
+    if request.method == "POST":
+        username = (request.POST.get("username") or "").strip()
+        email = (request.POST.get("email") or username).strip()
+        password = request.POST.get("password") or ""
+        staff_name = (request.POST.get("staff_name") or "").strip()
+        role = (request.POST.get("role") or "").strip()
+        confirm_password = request.POST.get("confirm_password") or ""
+        errors = []
 
         if not staff_name:
-            messages.error(request, "Staff name is required")
-            return redirect("account_create")
+            errors.append("Staff name is required.")
+        if not username:
+            errors.append("Username is required.")
+        if not email:
+            errors.append("Email is required.")
+        if not password:
+            errors.append("Password is required.")
+        if password != confirm_password:
+            errors.append("Passwords do not match.")
+        if role not in valid_roles:
+            errors.append("Please select a valid role: Staff, Cashier, or Manager.")
+        if username and User.objects.filter(username__iexact=username).exists():
+            errors.append("Account creation not permitted. Username already exists.")
+        if email and User.objects.filter(email__iexact=email).exists():
+            errors.append("Account creation not permitted. Email already exists.")
+        if staff_name and Staff.objects.filter(staff_name__iexact=staff_name).exists():
+            errors.append("Account creation not permitted. Staff name already exists.")
 
-        if User.objects.filter(username=username).exists() or Staff.objects.filter(staff_name=staff_name).exists():
-            messages.error(request, "Username already exists")
-            return redirect("account_create")
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/account_create.html", {"form": request.POST})
 
-        user = User.objects.create_user(
-            username=username,
-            password=password
-        )
+        user = User.objects.create_user(username=username, email=email, password=password)
+        Account.objects.create(user=user, staff_name=staff_name, role=role)
+        Staff.objects.create(staff_name=staff_name, staff_role=role, staff_email=email, staff_password=password)
 
-        Account.objects.create(
-            user=user,
-            staff_name=staff_name,
-            role=role
-        )
-
-        Staff.objects.create(
-            staff_name=staff_name,
-            staff_role=role.capitalize(),
-            staff_email=username, 
-            staff_password=password 
-        )
-
+        log_action(request, f"Created account: {staff_name} ({role})", "Staff", staff_name, action="CREATE")
+        messages.success(request, "Account created successfully.")
         return redirect("account_list")
 
     return render(request, "jsquared_app/account_create.html")
@@ -380,16 +517,58 @@ def sales_report(request):
     start_date = (request.GET.get("start_date") or "").strip()
     end_date = (request.GET.get("end_date") or "").strip()
 
-    orders = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+    orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+
     if start_date:
-        orders = orders.filter(created_at__date__gte=start_date)
+        orders_qs = orders_qs.filter(created_at__date__gte=start_date)
+        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
     if end_date:
-        orders = orders.filter(created_at__date__lte=end_date)
+        orders_qs = orders_qs.filter(created_at__date__lte=end_date)
+        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+
+    orders = list(orders_qs)
+    supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
+
+    total_revenue = sum(float(order.total_amount or 0) for order in orders)
+    total_expenses = sum(float(tx.transaction_amount or 0) for tx in supplier_transactions)
+    net_cash_flow = total_revenue - total_expenses
+
+    transactions = []
+
+    for order in orders:
+        transactions.append({
+            "type": "sale",
+            "label": f"Order #{order.order_id}",
+            "description": order.customer_name or "Customer order",
+            "date": timezone.localtime(order.created_at),
+            "amount": float(order.total_amount or 0),
+        })
+
+    for tx in supplier_transactions:
+        item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
+        supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
+        tx_date = tx.transaction_date or timezone.localdate()
+
+        transactions.append({
+            "type": "expense",
+            "label": f"Supplier Transaction #{tx.transaction_id}",
+            "description": f"{supplier_name} - {item_label}",
+            "date": timezone.make_aware(datetime.combine(tx.transaction_date, datetime.min.time())),
+            "amount": float(tx.transaction_amount or 0),
+        })
+
+    transactions = sorted(transactions, key=lambda x: x["date"], reverse=True)
 
     return render(request, "jsquared_app/sales_report.html", {
         "orders": orders,
+        "supplier_transactions": supplier_transactions,
+        "transactions": transactions,
         "start_date": start_date,
         "end_date": end_date,
+        "total_revenue": total_revenue,
+        "total_expenses": total_expenses,
+        "net_cash_flow": net_cash_flow,
     })
 
 
@@ -397,23 +576,55 @@ def sales_report(request):
 def sales_report_export_csv(request):
     start_date = (request.GET.get("start_date") or "").strip()
     end_date = (request.GET.get("end_date") or "").strip()
-    orders = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+
+    orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+
     if start_date:
-        orders = orders.filter(created_at__date__gte=start_date)
+        orders_qs = orders_qs.filter(created_at__date__gte=start_date)
+        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
     if end_date:
-        orders = orders.filter(created_at__date__lte=end_date)
+        orders_qs = orders_qs.filter(created_at__date__lte=end_date)
+        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+
+    orders = list(orders_qs)
+    supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
+
+    total_revenue = sum(float(order.total_amount or 0) for order in orders)
+    total_expenses = sum(float(tx.transaction_amount or 0) for tx in supplier_transactions)
+    net_cash_flow = total_revenue - total_expenses
 
     import csv
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="sales_report.csv"'
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="sales_report.csv"'
+
     writer = csv.writer(response)
-    writer.writerow(["Order ID", "Total Sales", "Date Completed"])
+    writer.writerow(["Date", "Type", "Reference", "Description", "Amount"])
+
     for order in orders:
         writer.writerow([
-            f"Order ID #{order.order_id}",
+            timezone.localtime(order.created_at).strftime("%m/%d/%Y"),
+            "Sale",
+            f"Order #{order.order_id}",
+            order.customer_name or "Customer order",
             float(order.total_amount or 0),
-            timezone.localtime(order.created_at).strftime('%m/%d/%Y'),
         ])
+
+    for tx in supplier_transactions:
+        item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
+        supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
+        writer.writerow([
+            (tx.transaction_date or timezone.localdate()).strftime("%m/%d/%Y"),
+            "Expense",
+            f"Supplier Transaction #{tx.transaction_id}",
+            f"{supplier_name} - {item_label}",
+            -float(tx.transaction_amount or 0),
+        ])
+
+    writer.writerow([])
+    writer.writerow(["TOTAL SALES", "", "", "", total_revenue])
+    writer.writerow(["TOTAL SUPPLIER EXPENSES", "", "", "", total_expenses])
+    writer.writerow(["NET CASH FLOW", "", "", "", net_cash_flow])
     return response
 
 
@@ -421,34 +632,69 @@ def sales_report_export_csv(request):
 def sales_report_export_xlsx(request):
     start_date = (request.GET.get("start_date") or "").strip()
     end_date = (request.GET.get("end_date") or "").strip()
-    orders = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+
+    orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
+    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+
     if start_date:
-        orders = orders.filter(created_at__date__gte=start_date)
+        orders_qs = orders_qs.filter(created_at__date__gte=start_date)
+        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
     if end_date:
-        orders = orders.filter(created_at__date__lte=end_date)
+        orders_qs = orders_qs.filter(created_at__date__lte=end_date)
+        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+
+    orders = list(orders_qs)
+    supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
+
+    total_revenue = sum(float(order.total_amount or 0) for order in orders)
+    total_expenses = sum(float(tx.transaction_amount or 0) for tx in supplier_transactions)
+    net_cash_flow = total_revenue - total_expenses
 
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Sales Report'
-    ws.append(["Order ID", "Total Sales", "Date Completed"])
+    ws.title = "Sales Report"
+    ws.append(["Date", "Type", "Reference", "Description", "Amount"])
+
     for order in orders:
         ws.append([
-            f"Order ID #{order.order_id}",
+            timezone.localtime(order.created_at).strftime("%m/%d/%Y"),
+            "Sale",
+            f"Order #{order.order_id}",
+            order.customer_name or "Customer order",
             float(order.total_amount or 0),
-            timezone.localtime(order.created_at).strftime('%m/%d/%Y'),
         ])
+
+    for tx in supplier_transactions:
+        item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
+        supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
+        ws.append([
+            (tx.transaction_date or timezone.localdate()).strftime("%m/%d/%Y"),
+            "Expense",
+            f"Supplier Transaction #{tx.transaction_id}",
+            f"{supplier_name} - {item_label}",
+            -float(tx.transaction_amount or 0),
+        ])
+
+    ws.append([])
+    ws.append(["TOTAL SALES", "", "", "", total_revenue])
+    ws.append(["TOTAL SUPPLIER EXPENSES", "", "", "", total_expenses])
+    ws.append(["NET CASH FLOW", "", "", "", net_cash_flow])
 
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="sales_report.xlsx"'
+    response = HttpResponse(
+        output.read(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="sales_report.xlsx"'
     return response
 
 
 @admin_login_required
 def sales_report_print(request):
     return sales_report(request)
+
 
 # ============================================================
 # HOME
@@ -458,7 +704,7 @@ def sales_report_print(request):
 def home(request):
     staff = _current_staff(request)
     role = request.session.get(SESSION_STAFF_ROLE)
-    meat_items = MeatItem.objects.all().order_by('-price_updated_at')
+    meat_items = MeatItem.objects.filter(is_active=True).order_by('-price_updated_at')
 
     return render(
         request,
@@ -481,7 +727,7 @@ def home(request):
 @require_roles("Staff", "Manager")
 
 def meat_price_list(request):
-    meat = MeatItem.objects.order_by("meat_type")
+    meat = MeatItem.objects.filter(is_active=True).order_by("meat_type")
     q = (request.GET.get("q") or "").strip()
     status = (request.GET.get("status") or "").strip()
     min_price = (request.GET.get("min_price") or "").strip()
@@ -514,15 +760,52 @@ def meat_price_list(request):
 @staff_login_required
 @require_roles("Staff", "Manager")
 def meat_price_create(request):
+    """Create a meat item. New meat items always start as Available."""
     if request.method == "POST":
-        MeatItem.objects.create(
-            meat_type=(request.POST.get("meat_type") or "").strip(),
-            current_price=float(request.POST.get("current_price") or 0),
-            weight_min=float(request.POST.get("weight_min") or 0),
-            weight_max=float(request.POST.get("weight_max") or 0),
-            item_status=request.POST.get("item_status") or "Available",
+        errors = []
+        meat_type = (request.POST.get("meat_type") or "").strip()
+        meat_description = (request.POST.get("meat_description") or "").strip() or None
+        current_price = _as_float(request.POST.get("current_price"), "Current price", errors)
+        weight_min = _as_float(request.POST.get("weight_min"), "Minimum weight", errors)
+        weight_max = _as_float(request.POST.get("weight_max"), "Maximum weight", errors)
+        item_status = MEAT_STATUS_AVAILABLE
+        meat_image = request.FILES.get("meat_image")
+
+        if not meat_type:
+            errors.append("Meat type is required.")
+        elif len(meat_type) > 100:
+            errors.append("Meat type exceeds the maximum allowable number of characters.")
+        elif MeatItem.objects.filter(meat_type__iexact=meat_type, is_active=True).exists():
+            errors.append("Add not permitted. Meat item already exists. Please input a unique meat type.")
+
+        if meat_description and len(meat_description) > 200:
+            errors.append("Description exceeds the maximum allowable number of characters (200). Please input a shorter description.")
+        if current_price is not None and current_price <= 0:
+            errors.append("Current price must be greater than zero.")
+        if weight_min is not None and weight_min <= 0:
+            errors.append("Minimum weight must be greater than zero.")
+        if weight_max is not None and weight_max <= 0:
+            errors.append("Maximum weight must be greater than zero.")
+        if weight_min is not None and weight_max is not None and weight_min > weight_max:
+            errors.append("Add not permitted. Minimum weight cannot be greater than maximum weight.")
+        _valid_file(meat_image, "Meat image", errors)
+
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/meat_price_create.html", {"form": request.POST})
+
+        meat_item = MeatItem.objects.create(
+            meat_type=meat_type,
+            meat_description=meat_description,
+            current_price=current_price,
+            weight_min=weight_min,
+            weight_max=weight_max,
+            item_status=item_status,
+            meat_image=meat_image,
         )
-        return redirect("meat_price_list")
+        log_action(request, f"Created meat item: {meat_item.meat_type}", "MeatItem", meat_item.meat_type, action="CREATE")
+        messages.success(request, "Meat item successfully added. New meat items are automatically marked as Available.")
+        return redirect("home")
 
     return render(request, "jsquared_app/meat_price_create.html")
 
@@ -530,16 +813,70 @@ def meat_price_create(request):
 @staff_login_required
 @require_roles("Staff", "Manager")
 def meat_price_edit(request, meat_id: int):
-    m = get_object_or_404(MeatItem, meat_id=meat_id)
+    m = get_object_or_404(MeatItem, meat_id=meat_id, is_active=True)
 
     if request.method == "POST":
-        m.meat_type = (request.POST.get("meat_type") or m.meat_type).strip()
-        m.current_price = float(request.POST.get("current_price") or m.current_price)
-        m.weight_min = float(request.POST.get("weight_min") or m.weight_min)
-        m.weight_max = float(request.POST.get("weight_max") or m.weight_max)
-        m.item_status = request.POST.get("item_status") or m.item_status
+        errors = []
+        meat_type = (request.POST.get("meat_type") or m.meat_type).strip()
+        meat_description = (request.POST.get("meat_description") or "").strip() or None
+        current_price = _as_float(request.POST.get("current_price"), "Current price", errors)
+        weight_min = _as_float(request.POST.get("weight_min"), "Minimum weight", errors)
+        weight_max = _as_float(request.POST.get("weight_max"), "Maximum weight", errors)
+        new_status = _normalize_meat_status(request.POST.get("item_status"), m.item_status)
+        meat_image = request.FILES.get("meat_image")
+
+        if not meat_type:
+            errors.append("Meat type is required.")
+        elif len(meat_type) > 100:
+            errors.append("Meat type exceeds the maximum allowable number of characters.")
+        elif MeatItem.objects.filter(meat_type__iexact=meat_type, is_active=True).exclude(meat_id=m.meat_id).exists():
+            errors.append("Update not permitted. Meat item already exists. Please input a unique meat type.")
+
+        if meat_description and len(meat_description) > 200:
+            errors.append("Description exceeds the maximum allowable number of characters (200). Please input a shorter description.")
+        if current_price is not None and current_price <= 0:
+            errors.append("Current price must be greater than zero.")
+        if weight_min is not None and weight_min <= 0:
+            errors.append("Minimum weight must be greater than zero.")
+        if weight_max is not None and weight_max <= 0:
+            errors.append("Maximum weight must be greater than zero.")
+        if weight_min is not None and weight_max is not None and weight_min > weight_max:
+            errors.append("Update not permitted. Minimum weight cannot be greater than maximum weight.")
+        if new_status not in MEAT_EDIT_STATUSES:
+            errors.append("Invalid meat status. Please choose Available, Out of Stock, or Discontinued.")
+        _valid_file(meat_image, "Meat image", errors)
+
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/meat_price_edit.html", {"m": m, "form": request.POST})
+
+        m.meat_type = meat_type
+        m.meat_description = meat_description
+        m.current_price = current_price
+        m.weight_min = weight_min
+        m.weight_max = weight_max
+        m.item_status = new_status
+
+        if new_status == MEAT_STATUS_DISCONTINUED:
+            m.is_active = False
+            if hasattr(m, "archived_at"):
+                m.archived_at = timezone.now()
+        else:
+            m.is_active = True
+            if hasattr(m, "archived_at"):
+                m.archived_at = None
+
+        if meat_image:
+            m.meat_image = meat_image
+
         m.save()
-        return redirect("meat_price_list")
+        log_action(request, f"Updated meat item: {m.meat_type}; status set to {new_status}", "MeatItem", m.meat_type, action="UPDATE")
+
+        if new_status == MEAT_STATUS_DISCONTINUED:
+            messages.success(request, "Meat item marked as Discontinued and archived. Existing records remain intact.")
+        else:
+            messages.success(request, f"Meat item updated. Status is now {new_status}.")
+        return redirect("home")
 
     return render(request, "jsquared_app/meat_price_edit.html", {"m": m})
 
@@ -547,11 +884,13 @@ def meat_price_edit(request, meat_id: int):
 @staff_login_required
 @require_roles("Staff", "Manager")
 def meat_price_delete(request, meat_id: int):
-    m = get_object_or_404(MeatItem, meat_id=meat_id)
+    m = get_object_or_404(MeatItem, meat_id=meat_id, is_active=True)
 
     if request.method == "POST":
-        m.delete()
-        return redirect("meat_price_list")
+        _archive_instance(m, {"item_status": "Discontinued"})
+        log_action(request, f"Archived meat item: {m.meat_type}", "MeatItem", m.meat_type, action="ARCHIVE")
+        messages.success(request, "Meat item archived. Existing records remain intact.")
+        return redirect("home")
 
     return render(request, "jsquared_app/meat_price_delete.html", {"m": m})
 
@@ -611,6 +950,7 @@ def order_create(request):
             payment_method="Cash",
             diner_count=1,
             eligible_count=1,
+            order_type=request.POST.get("order_type") == "1",
         )
 
         try:
@@ -647,21 +987,22 @@ def order_create(request):
             pass
 
         order.recompute_total()
+        log_action(request, f"Created order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="CREATE")
         messages.success(request, "Order placed!")
         return redirect("order_list")
 
     _ensure_varied_items_synced()
 
-    meats = MeatItem.objects.filter(item_status="Available").order_by("meat_type")
-    cooking_styles = CookingStyle.objects.all()
-    fixed_items = FixedMenuItem.objects.all()
+    meats = MeatItem.objects.filter(is_active=True, item_status="Available").order_by("meat_type")
+    cooking_styles = CookingStyle.objects.filter(is_active=True)
+    fixed_items = FixedMenuItem.objects.filter(is_active=True)
 
     cooking_styles_json = json.dumps([
         {"id": s.cooking_style_id, "name": s.style_name, "price": s.cooking_charge}
         for s in cooking_styles
     ])
 
-    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").all()
+    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").filter(is_active=True, meat__is_active=True, cooking_style__is_active=True)
     varied_items_json = json.dumps([
         {
             "meat_id": v.meat_id,
@@ -696,10 +1037,10 @@ def order_detail(request, order_id: int):
 
     _ensure_varied_items_synced()
 
-    fixed_items = FixedMenuItem.objects.order_by("item_name")
-    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").order_by(
-        "meat__meat_type", "cooking_style__style_name"
-    )
+    fixed_items = FixedMenuItem.objects.filter(is_active=True).order_by("item_name")
+    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").filter(
+        is_active=True, meat__is_active=True, cooking_style__is_active=True
+    ).order_by("meat__meat_type", "cooking_style__style_name")
 
     menu_items = (
         [{"key": f"fixed:{f.fixed_item_id}", "label": f"{f.item_name}", "pricing_type": "F"} for f in fixed_items]
@@ -743,6 +1084,7 @@ def order_detail(request, order_id: int):
                 return HttpResponseForbidden("Invalid menu item type.")
 
             order.recompute_total()
+            log_action(request, f"Added item to order #{order.order_id:03d}", "OrderItem", f"Order #{order.order_id:03d}", action="UPDATE")
             messages.success(request, "Item added to order.")
             return redirect("order_detail", order_id=order.order_id)
 
@@ -758,6 +1100,7 @@ def order_accept(request, order_id: int):
         if order.order_status == "Pending":
             order.order_status = "Preparing"
             order.save(update_fields=["order_status"])
+            log_action(request, f"Accepted order #{order.order_id:03d}; status changed to Preparing", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
     return redirect("order_list")
 
 
@@ -768,6 +1111,7 @@ def order_cancel(request, order_id: int):
     if request.method == "POST":
         order.order_status = "Cancelled"
         order.save(update_fields=["order_status"])
+        log_action(request, f"Cancelled order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
         messages.success(request, f"Order #{order.order_id:03d} cancelled.")
     return redirect("order_history" if order.order_status == "Cancelled" else "order_list")
 
@@ -793,6 +1137,7 @@ def order_serve(request, order_id: int):
     order.recompute_total()
     order.order_status = "Completed"
     order.save(update_fields=["order_status"])
+    log_action(request, f"Completed order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
     messages.success(request, f"Order #{order.order_id:03d} completed and moved to history.")
     return redirect("order_list")
 
@@ -820,6 +1165,7 @@ def order_update_payment(request, order_id: int):
     order.payment_method = payment_method
     order.payment_status = payment_status
     order.save(update_fields=["payment_method", "payment_status"])
+    log_action(request, f"Updated payment for order #{order.order_id:03d}: {payment_status} via {payment_method}", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
     messages.success(request, f"Payment updated for Order #{order.order_id:03d}.")
     return redirect("order_checkout", order_id=order.order_id)
 
@@ -853,7 +1199,7 @@ def order_update_discount(request, order_id: int):
         order.eligible_count = order.pwd_count + order.senior_count
 
         if discount_id:
-            discount = get_object_or_404(Discount, discount_id=int(discount_id))
+            discount = get_object_or_404(Discount, discount_id=int(discount_id), is_active=True)
             order.discount = discount
 
             if discount.discount_type == "Suki":
@@ -875,6 +1221,7 @@ def order_update_discount(request, order_id: int):
             ]
         )
         order.recompute_total()
+        log_action(request, f"Updated discount details for order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
         messages.success(request, "Discount details updated.")
 
     return redirect("order_checkout", order_id=order.order_id)
@@ -899,7 +1246,7 @@ def order_checkout(request, order_id: int):
         "jsquared_app/order_checkout.html",
         {
             "order": order,
-            "discounts": Discount.objects.all().order_by("discount_type", "discount_value"),
+            "discounts": Discount.objects.filter(is_active=True).order_by("discount_type", "discount_value"),
             "discount_breakdown": discount_breakdown,
             "selected_discount_type": selected_discount_type,
             "is_manager": request.session.get(SESSION_STAFF_ROLE) == "Manager",
@@ -926,6 +1273,7 @@ def order_complete(request, order_id: int):
     order.recompute_total()
     order.order_status = "Completed"
     order.save(update_fields=["order_status"])
+    log_action(request, f"Completed order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
     messages.success(request, f"Order #{order.order_id:03d} completed and moved to history.")
     return redirect("order_list")
 
@@ -943,6 +1291,7 @@ def order_item_delete(request, order_id: int, order_item_id: int):
     if request.method == "POST":
         item.delete()
         order.recompute_total()
+        log_action(request, f"Removed item from pending order #{order.order_id:03d}", "OrderItem", f"Item #{order_item_id}", action="DELETE")
         messages.success(request, "Order item removed.")
         return redirect("order_detail", order_id=order.order_id)
 
@@ -955,8 +1304,11 @@ def order_delete(request, order_id: int):
     order = get_object_or_404(Order, order_id=order_id)
 
     if request.method == "POST":
-        order.delete()
-        return redirect("order_list")
+        order.order_status = "Cancelled"
+        order.save(update_fields=["order_status"])
+        log_action(request, f"Cancelled order #{order.order_id:03d}. Existing records remain intact.", "Order", f"Order #{order.order_id:03d}", action="UPDATE")
+        messages.success(request, f"Order #{order.order_id:03d} cancelled. Existing records remain intact.")
+        return redirect("order_history")
 
     return render(request, "jsquared_app/order_delete.html", {"order": order})
 
@@ -992,7 +1344,7 @@ def inquiry_list(request):
 @require_roles("Staff", "Manager")
 def inquiry_create(request):
     staff = _current_staff(request)
-    meats = MeatItem.objects.order_by("meat_type")
+    meats = MeatItem.objects.filter(is_active=True).order_by("meat_type")
 
     if request.method == "POST":
         meat_ids = request.POST.getlist("meat_ids") 
@@ -1006,6 +1358,7 @@ def inquiry_create(request):
                 meat=meat, requested_by=staff, status="Queued"
             )
 
+        log_action(request, f"Created {len(meat_ids)} price inquiry request(s)", "PriceInquiryRequest", "Multiple inquiries", action="CREATE")
         messages.success(request, "Price requests created!")
         return redirect("inquiry_list")
 
@@ -1026,6 +1379,7 @@ def inquiry_accept(request, inquiry_id: int):
         req.accepted_by = staff
         req.accepted_at = timezone.now()
         req.save(update_fields=["status", "accepted_by", "accepted_at"])
+        log_action(request, f"Accepted price inquiry #{req.inquiry_id}", "PriceInquiryRequest", f"Inquiry #{req.inquiry_id}", action="UPDATE")
         return redirect("inquiry_list")
 
     return render(request, "jsquared_app/inquiry_accept.html", {"req": req})
@@ -1046,6 +1400,7 @@ def inquiry_delete(request, inquiry_id: int):
     if request.method == "POST":
         req.status = "Cancelled"
         req.save(update_fields=["status"])
+        log_action(request, f"Cancelled price inquiry #{req.inquiry_id}", "PriceInquiryRequest", f"Inquiry #{req.inquiry_id}", action="UPDATE")
         return redirect("inquiry_list")
 
     return render(request, "jsquared_app/inquiry_delete.html", {"req": req})
@@ -1062,93 +1417,186 @@ def inquiry_update_price(request, inquiry_id: int):
     if request.method == "POST":
         raw_price = (request.POST.get("new_price") or "").strip()
         notes = (request.POST.get("notes") or "").strip() or None
+        new_status = _normalize_meat_status(request.POST.get("item_status"), MEAT_STATUS_AVAILABLE)
+        errors = []
 
-        if raw_price == "":
-            messages.error(request, "Please enter the new price")
+        if new_status not in MEAT_MARKET_STATUSES:
+            errors.append("Invalid market availability status. Please choose Available or Out of Stock.")
+
+        new_price = None
+        if raw_price:
+            new_price = _as_float(raw_price, "New price", errors)
+            if new_price is not None and new_price <= 0:
+                errors.append("New price must be greater than zero.")
+        elif new_status == MEAT_STATUS_AVAILABLE:
+            errors.append("Please enter the new price when the meat item is Available.")
+
+        if errors:
+            _message_errors(request, errors)
             return redirect("inquiry_update_price", inquiry_id=req.inquiry_id)
 
-        new_price = float(raw_price)
-
-        req.new_price = new_price
         req.notes = notes
         req.responded_at = timezone.now()
         req.status = "Completed"
+        if new_price is not None:
+            req.new_price = new_price
         req.save(update_fields=["new_price", "notes", "responded_at", "status"])
 
         meat = req.meat
-        meat.current_price = new_price
-        meat.save()
+        if new_price is not None:
+            meat.current_price = new_price
+        meat.item_status = new_status
+        meat.is_active = True
+        if hasattr(meat, "archived_at"):
+            meat.archived_at = None
+            meat.save(update_fields=["current_price", "item_status", "is_active", "archived_at", "price_updated_at"])
+        else:
+            meat.save(update_fields=["current_price", "item_status", "is_active", "price_updated_at"])
 
-        messages.success(request, "Price Successfully updated!")
+        if new_price is not None:
+            log_action(request, f"Updated price inquiry #{req.inquiry_id}; changed price of {meat.meat_type} to ₱{new_price} and status to {new_status}", "PriceInquiryRequest", f"Inquiry #{req.inquiry_id}", action="UPDATE")
+        else:
+            log_action(request, f"Updated price inquiry #{req.inquiry_id}; marked {meat.meat_type} as {new_status}", "PriceInquiryRequest", f"Inquiry #{req.inquiry_id}", action="UPDATE")
+
+        messages.success(request, f"Price inquiry completed. Meat status is now {new_status}.")
         return redirect("inquiry_list")
 
     return render(request, "jsquared_app/inquiry_update_price.html", {"req": req})
 
 
 @staff_login_required
+@require_roles("Staff", "Manager")
 def meat_detail(request, meat_id):
-    item = get_object_or_404(MeatItem, meat_id=meat_id)
-    
-    if request.method == 'POST':
-        item.meat_type        = request.POST.get('meat_type', item.meat_type).strip()
-        item.meat_description = request.POST.get('meat_description', '').strip() or None
-        item.weight_min       = float(request.POST.get('weight_min', item.weight_min))
-        item.weight_max       = float(request.POST.get('weight_max', item.weight_max))
-        item.save()
-        messages.success(request, 'Meat item updated.')
-        return redirect('meat_detail', meat_id=item.meat_id)
+    item = get_object_or_404(MeatItem, meat_id=meat_id, is_active=True)
 
-    is_manager = _current_staff(request).staff_role == 'Manager' if _current_staff(request) else False
-    is_staff   = _current_staff(request).staff_role == 'Staff'   if _current_staff(request) else False
-    return render(request, 'jsquared_app/meat_detail.html', {
-        'item': item,
-        'is_manager': is_manager,
-        'is_staff': is_staff,
+    if request.method == "POST":
+        errors = []
+
+        meat_type = (request.POST.get("meat_type") or item.meat_type).strip()
+        meat_description = (request.POST.get("meat_description") or "").strip() or None
+        weight_min = _as_float(request.POST.get("weight_min"), "Minimum weight", errors)
+        weight_max = _as_float(request.POST.get("weight_max"), "Maximum weight", errors)
+        item_status = (request.POST.get("item_status") or item.item_status).strip()
+
+        valid_statuses = {"Available", "Out of Stock", "Discontinued"}
+
+        if not meat_type:
+            errors.append("Meat type is required.")
+
+        if weight_min is not None and weight_min <= 0:
+            errors.append("Minimum weight must be greater than zero.")
+
+        if weight_max is not None and weight_max <= 0:
+            errors.append("Maximum weight must be greater than zero.")
+
+        if weight_min is not None and weight_max is not None and weight_min > weight_max:
+            errors.append("Minimum weight cannot be greater than maximum weight.")
+
+        if item_status not in valid_statuses:
+            errors.append("Invalid meat status.")
+
+        if request.FILES.get("meat_image"):
+            _valid_file(request.FILES.get("meat_image"), "Meat image", errors)
+
+        if errors:
+            _message_errors(request, errors)
+            return redirect("meat_detail", meat_id=item.meat_id)
+
+        item.meat_type = meat_type
+        item.meat_description = meat_description
+        item.weight_min = weight_min
+        item.weight_max = weight_max
+        item.item_status = item_status
+
+        if request.FILES.get("meat_image"):
+            item.meat_image = request.FILES.get("meat_image")
+
+        if item_status == "Discontinued":
+            item.is_active = False
+            item.archived_at = timezone.now()
+            item.save()
+            log_action(request, f"Archived meat item: {item.meat_type}", "MeatItem", item.meat_type, action="ARCHIVE")
+            messages.success(request, "Meat item discontinued and archived.")
+            return redirect("home")
+
+        item.is_active = True
+        item.archived_at = None
+        item.save()
+
+        log_action(request, f"Updated meat item: {item.meat_type}", "MeatItem", item.meat_type, action="UPDATE")
+        messages.success(request, "Meat item updated.")
+        return redirect("meat_detail", meat_id=item.meat_id)
+
+    is_manager = _current_staff(request).staff_role == "Manager" if _current_staff(request) else False
+    is_staff = _current_staff(request).staff_role == "Staff" if _current_staff(request) else False
+
+    return render(request, "jsquared_app/meat_detail.html", {
+        "item": item,
+        "is_manager": is_manager,
+        "is_staff": is_staff,
     })
 
 
 @staff_login_required
-
+@require_roles("Staff", "Manager")
 def cooking_styles_list(request):
-    meat_items = MeatItem.objects.order_by("meat_type")
+    meat_items = MeatItem.objects.filter(is_active=True).order_by("meat_type")
     q = (request.GET.get("q") or "").strip()
     if q:
         meat_items = meat_items.filter(
-            models.Q(meat_type__icontains=q) | models.Q(cooking_styles__style_name__icontains=q)
+            models.Q(meat_type__icontains=q) | models.Q(cooking_styles__style_name__icontains=q, cooking_styles__is_active=True)
         ).distinct()
     return render(request, "jsquared_app/cooking_styles_list.html", {"meat_items": meat_items, "q": q})
 
 
 @staff_login_required
+@require_roles("Staff", "Manager")
 def cooking_style_create(request, meat_id: int):
-    meat = get_object_or_404(MeatItem, meat_id=meat_id)
+    meat = get_object_or_404(MeatItem, meat_id=meat_id, is_active=True)
 
     if request.method == "POST":
+        errors = []
         style_name = (request.POST.get("style_name") or "").strip()
         style_description = (request.POST.get("style_description") or "").strip()
-        cooking_charge = float(request.POST.get("cooking_charge") or 0)
-        c_weight_min = float(request.POST.get("c_weight_min") or 0)
-        c_weight_max = float(request.POST.get("c_weight_max") or 0)
+        cooking_charge = _as_float(request.POST.get("cooking_charge"), "Cooking charge", errors)
+        c_weight_min = _as_float(request.POST.get("c_weight_min"), "Minimum weight", errors)
+        c_weight_max = _as_float(request.POST.get("c_weight_max"), "Maximum weight", errors)
         icon = request.FILES.get("icon")
 
-        CookingStyle.objects.create(
-            meat_item=meat,
-            style_name=style_name,
-            style_description=style_description,
-            cooking_charge=cooking_charge,
-            c_weight_min=c_weight_min,
-            c_weight_max=c_weight_max,
-            icon=icon,
-        )
+        if not style_name:
+            errors.append("Cooking style name is required.")
+        elif len(style_name) > 50:
+            errors.append("Add not permitted. Cooking style name exceeds the maximum allowable number of characters. Please input a shorter name.")
+        elif CookingStyle.objects.filter(meat_item=meat, style_name__iexact=style_name, is_active=True).exists():
+            errors.append("Add not permitted. Cooking style name already exists for this meat. Please input a unique cooking style name.")
+        if style_description and len(style_description) > 200:
+            errors.append("Add not permitted. Description exceeds the maximum allowable number of characters (200). Please input a shorter description.")
+        if cooking_charge is not None and cooking_charge <= 0:
+            errors.append("Cooking charge must be greater than zero.")
+        if c_weight_min is not None and c_weight_min <= 0:
+            errors.append("Minimum weight must be greater than zero.")
+        if c_weight_max is not None and c_weight_max <= 0:
+            errors.append("Maximum weight must be greater than zero.")
+        if c_weight_min is not None and c_weight_max is not None and c_weight_min > c_weight_max:
+            errors.append("Add not permitted. Minimum weight cannot be greater than maximum weight.")
+        _valid_file(icon, "Cooking style icon", errors)
 
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/cooking_style_create.html", {"meat": meat, "form": request.POST})
+
+        style = CookingStyle.objects.create(meat_item=meat, style_name=style_name, style_description=style_description, cooking_charge=cooking_charge, c_weight_min=c_weight_min, c_weight_max=c_weight_max, icon=icon)
+        log_action(request, f"Created cooking style: {style.style_name} for {meat.meat_type}", "CookingStyle", style.style_name, action="CREATE")
+        messages.success(request, "Cooking style successfully added.")
         return redirect("meat_category", meat_id=meat.meat_id)
 
     return render(request, "jsquared_app/cooking_style_create.html", {"meat": meat})
 
 
 @staff_login_required
+@require_roles("Staff", "Manager")
 def cooking_style_edit(request, cooking_style_id: int):
-    c = get_object_or_404(CookingStyle, cooking_style_id=cooking_style_id)
+    c = get_object_or_404(CookingStyle, cooking_style_id=cooking_style_id, is_active=True)
 
     if request.method == "POST":
         c.style_name = (request.POST.get("style_name") or c.style_name).strip()
@@ -1156,27 +1604,34 @@ def cooking_style_edit(request, cooking_style_id: int):
         c.cooking_charge = float(request.POST.get("cooking_charge") or c.cooking_charge)
         c.c_weight_min = float(request.POST.get("c_weight_min") or c.c_weight_min)
         c.c_weight_max = float(request.POST.get("c_weight_max") or c.c_weight_max)
+        if request.FILES.get("icon"):
+            c.icon = request.FILES.get("icon")
         c.save()
+        log_action(request, f"Updated cooking style: {c.style_name}", "CookingStyle", c.style_name, action="UPDATE")
         return redirect("meat_category", meat_id=c.meat_item_id)
 
     return render(request, "jsquared_app/cooking_style_edit.html", {"c": c})
 
 
 @staff_login_required
+@require_roles("Manager")
 def cooking_style_delete(request, cooking_style_id: int):
-    c = get_object_or_404(CookingStyle, cooking_style_id=cooking_style_id)
+    c = get_object_or_404(CookingStyle, cooking_style_id=cooking_style_id, is_active=True)
 
     if request.method == "POST":
-        c.delete()
+        _archive_instance(c)
+        log_action(request, f"Archived cooking style: {c.style_name}", "CookingStyle", c.style_name, action="ARCHIVE")
+        messages.success(request, "Cooking style archived. Existing records remain intact.")
         return redirect("cooking_styles_list")
 
     return render(request, "jsquared_app/cooking_style_delete.html", {"c": c})
 
 
 @staff_login_required
+@require_roles("Staff", "Manager")
 def meat_category(request, meat_id: int):
-    meat = get_object_or_404(MeatItem, meat_id=meat_id)
-    styles = CookingStyle.objects.filter(meat_item=meat).order_by("style_name")
+    meat = get_object_or_404(MeatItem, meat_id=meat_id, is_active=True)
+    styles = CookingStyle.objects.filter(meat_item=meat, is_active=True).order_by("style_name")
 
     return render(
         request,
@@ -1195,6 +1650,50 @@ def _transaction_pending_filter():
 def _supplier_pending_filter():
     return Q(payment_status__in=["Pending", "Unpaid"])
 
+
+
+
+def _supplier_expense_q_for_orders(order_ids):
+    """Build a query for auto-created supplier transactions tied to the selected completed/served orders."""
+    query = Q()
+    for order_id in order_ids:
+        query |= Q(notes__icontains=f"Auto-created from Order #{order_id},")
+        query |= Q(notes__icontains=f"Auto-created from Order #{order_id} ")
+        query |= Q(notes__icontains=f"Auto-created from Order #{order_id}")
+    return query
+
+
+def _apply_supplier_expenses_to_orders(orders):
+    """Attach supplier_expense and net_sales to each order for reporting display/export."""
+    orders = list(orders)
+    for order in orders:
+        expense_query = _supplier_expense_q_for_orders([order.order_id])
+        supplier_expense = 0
+        if expense_query:
+            supplier_expense = SupplierTransaction.objects.filter(expense_query).exclude(
+                payment_status="Cancelled"
+            ).aggregate(total=Sum("transaction_amount"))["total"] or 0
+        order.supplier_expense = float(supplier_expense or 0)
+        order.net_sales = float(order.total_amount or 0) - order.supplier_expense
+    return orders
+
+
+def _report_totals_for_orders(orders):
+    """Return revenue, supplier expenses, and net sales for completed/served orders only."""
+    orders = list(orders)
+    order_ids = [order.order_id for order in orders]
+    total_revenue = sum(float(order.total_amount or 0) for order in orders)
+
+    total_expenses = 0
+    if order_ids:
+        expense_query = _supplier_expense_q_for_orders(order_ids)
+        total_expenses = SupplierTransaction.objects.filter(expense_query).exclude(
+            payment_status="Cancelled"
+        ).aggregate(total=Sum("transaction_amount"))["total"] or 0
+
+    total_expenses = float(total_expenses or 0)
+    net_profit = total_revenue - total_expenses
+    return total_revenue, total_expenses, net_profit
 
 def _order_item_is_byom(order_item):
     return bool(order_item and getattr(order_item, "is_effective_byom", False))
@@ -1227,7 +1726,7 @@ def _sync_supplier_transaction(order_item, supplier):
         item_name = order_item.fixed_item.item_name
         unit_price = float(order_item.order_unit_price or 0)
 
-    auto_note = f"Auto-created from Order #{order_item.order.order_id}, Item #{order_item.order_item_id}"
+    auto_note = f"From Order #{order_item.order.order_id}"
 
     tx = SupplierTransaction.objects.filter(notes=auto_note).first()
     if tx:
@@ -1330,6 +1829,7 @@ def supplier_list(request):
             last_transaction_date=Max("transactions__transaction_date"),
         )
         .prefetch_related("transactions__meat")
+        .filter(is_active=True)
         .order_by("supplier_name")
     )
 
@@ -1340,7 +1840,7 @@ def supplier_list(request):
 
         if supplier_id and order_item_id:
             try:
-                supplier = Supplier.objects.get(supplier_id=int(supplier_id))
+                supplier = Supplier.objects.get(supplier_id=int(supplier_id), is_active=True)
                 order_item = OrderItem.objects.select_related(
                     "order", "supplier", "varied_item__meat", "varied_item__cooking_style", "fixed_item"
                 ).get(order_item_id=int(order_item_id))
@@ -1356,6 +1856,7 @@ def supplier_list(request):
                     order_item.supplier = supplier
                     order_item.save(update_fields=["supplier"])
                     _sync_supplier_transaction(order_item, supplier)
+                    log_action(request, f"Assigned supplier {supplier.supplier_name} to order item #{order_item.order_item_id}", "OrderItem", f"Item #{order_item.order_item_id}", action="UPDATE")
                     messages.success(request, "Supplier assigned and transaction recorded.")
             except (Supplier.DoesNotExist, OrderItem.DoesNotExist, ValueError):
                 messages.error(request, "Unable to assign supplier.")
@@ -1393,15 +1894,40 @@ def supplier_list(request):
 @require_roles("Manager")
 def supplier_create(request):
     if request.method == "POST":
-        Supplier.objects.create(
-            supplier_name=(request.POST.get("supplier_name") or "").strip(),
-            contact_person=(request.POST.get("contact_person") or "").strip() or None,
-            phone_number=(request.POST.get("phone_number") or "").strip(),
-            supplier_address=(request.POST.get("supplier_address") or "").strip(),
-        )
-        messages.success(request, "Supplier created.")
+        errors = []
+        supplier_name = (request.POST.get("supplier_name") or "").strip()
+        contact_person = (request.POST.get("contact_person") or "").strip() or None
+        phone_number = (request.POST.get("phone_number") or "").strip()
+        supplier_address = (request.POST.get("supplier_address") or "").strip()
+
+        if not supplier_name:
+            errors.append("Supplier name is required.")
+        elif Supplier.objects.filter(supplier_name__iexact=supplier_name, is_active=True).exists():
+            errors.append("Supplier creation not permitted. Supplier already exists. Please input a unique supplier name.")
+        if not phone_number:
+            errors.append("Phone number is required.")
+        elif not phone_number.isdigit() or len(phone_number) != 11:
+            errors.append("Phone number must contain exactly 11 digits.")
+        elif Supplier.objects.filter(phone_number=phone_number, is_active=True).exists():
+            errors.append("Supplier creation not permitted. Phone number already exists. Please input a unique phone number.")
+        if not supplier_address:
+            errors.append("Supplier address/store location is required.")
+
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/supplier_form.html", {"mode": "create", "form": request.POST, "return_url": request.GET.get("return_url") or "", "order_item_id": request.GET.get("order_item_id") or ""})
+
+        supplier = Supplier.objects.create(supplier_name=supplier_name, contact_person=contact_person, phone_number=phone_number, supplier_address=supplier_address)
+        log_action(request, f"Created supplier: {supplier.supplier_name}", "Supplier", supplier.supplier_name, action="CREATE")
+        messages.success(request, "Supplier successfully added.")
+
+        return_url = request.GET.get("return_url")
+        order_item_id = request.GET.get("order_item_id")
+        if return_url:
+            return redirect(f"{reverse('supplier_list')}?return_url={return_url}&order_item_id={order_item_id}")
         return redirect("supplier_list")
-    return render(request, "jsquared_app/supplier_form.html", {"mode": "create"})
+
+    return render(request, "jsquared_app/supplier_form.html", {"mode": "create", "return_url": request.GET.get("return_url") or "", "order_item_id": request.GET.get("order_item_id") or ""})
 
 
 @staff_login_required
@@ -1410,8 +1936,9 @@ def supplier_detail(request, supplier_id: int):
     supplier = get_object_or_404(
         Supplier.objects.prefetch_related("transactions__meat"),
         supplier_id=supplier_id,
+        is_active=True,
     )
-    meats = MeatItem.objects.order_by("meat_type")
+    meats = MeatItem.objects.filter(is_active=True).order_by("meat_type")
     transactions = supplier.transactions.select_related("meat").order_by("-transaction_date", "-transaction_id")
 
     start_date = (request.GET.get("start_date") or "").strip()
@@ -1443,6 +1970,7 @@ def supplier_detail(request, supplier_id: int):
         supplier.phone_number = (request.POST.get("phone_number") or supplier.phone_number).strip()
         supplier.supplier_address = (request.POST.get("supplier_address") or supplier.supplier_address).strip()
         supplier.save()
+        log_action(request, f"Updated supplier: {supplier.supplier_name}", "Supplier", supplier.supplier_name, action="UPDATE")
         messages.success(request, "Supplier updated.")
         return redirect("supplier_detail", supplier_id=supplier.supplier_id)
 
@@ -1470,10 +1998,11 @@ def supplier_detail(request, supplier_id: int):
 @staff_login_required
 @require_roles("Manager")
 def supplier_delete(request, supplier_id: int):
-    supplier = get_object_or_404(Supplier, supplier_id=supplier_id)
+    supplier = get_object_or_404(Supplier, supplier_id=supplier_id, is_active=True)
     if request.method == "POST":
-        supplier.delete()
-        messages.success(request, "Supplier deleted.")
+        _archive_instance(supplier)
+        log_action(request, f"Archived supplier: {supplier.supplier_name}", "Supplier", supplier.supplier_name, action="ARCHIVE")
+        messages.success(request, "Supplier archived. Existing records remain intact.")
         return redirect("supplier_list")
     return render(request, "jsquared_app/supplier_delete.html", {"supplier": supplier})
 
@@ -1481,44 +2010,22 @@ def supplier_delete(request, supplier_id: int):
 @staff_login_required
 @require_roles("Manager")
 def supplier_transaction_create(request, supplier_id: int):
-    supplier = get_object_or_404(Supplier, supplier_id=supplier_id)
-    if request.method == "POST":
-        tx, errors, _data = _parse_transaction_form(request, supplier)
-        if errors:
-            for error in errors:
-                messages.error(request, error)
-            return redirect(f"{reverse('supplier_detail', args=[supplier.supplier_id])}")
-        tx.save()
-        messages.success(request, "Supplier transaction recorded.")
-        return redirect("supplier_detail", supplier_id=supplier.supplier_id)
-    return redirect("supplier_detail", supplier_id=supplier.supplier_id)
+    messages.error(request, "Manual supplier transactions are disabled. Supplier expenses are automatically recorded when a supplier is assigned to an order item.")
+    return redirect("supplier_detail", supplier_id=supplier_id)
 
 
 @staff_login_required
 @require_roles("Manager")
 def supplier_transaction_update(request, supplier_id: int, transaction_id: int):
-    supplier = get_object_or_404(Supplier, supplier_id=supplier_id)
-    transaction = get_object_or_404(SupplierTransaction, transaction_id=transaction_id, supplier=supplier)
-    if request.method == "POST":
-        tx, errors, _data = _parse_transaction_form(request, supplier, transaction=transaction)
-        if errors:
-            for error in errors:
-                messages.error(request, error)
-            return redirect(f"{reverse('supplier_detail', args=[supplier.supplier_id])}?edit_tx={transaction.transaction_id}")
-        tx.save()
-        messages.success(request, "Supplier transaction updated.")
-    return redirect("supplier_detail", supplier_id=supplier.supplier_id)
+    messages.error(request, "Manual supplier transaction editing is disabled to preserve sales report integrity.")
+    return redirect("supplier_detail", supplier_id=supplier_id)
 
 
 @staff_login_required
 @require_roles("Manager")
 def supplier_transaction_delete(request, supplier_id: int, transaction_id: int):
-    supplier = get_object_or_404(Supplier, supplier_id=supplier_id)
-    transaction = get_object_or_404(SupplierTransaction, transaction_id=transaction_id, supplier=supplier)
-    if request.method == "POST":
-        transaction.delete()
-        messages.success(request, "Supplier transaction deleted.")
-    return redirect("supplier_detail", supplier_id=supplier.supplier_id)
+    messages.error(request, "Manual supplier transaction cancellation is disabled to preserve sales report integrity.")
+    return redirect("supplier_detail", supplier_id=supplier_id)
 
 
 # ============================================================
@@ -1529,7 +2036,7 @@ def supplier_transaction_delete(request, supplier_id: int, transaction_id: int):
 @require_roles("Manager")
 def discount_list(request):
     _ensure_default_discounts()
-    discounts = Discount.objects.all().order_by("discount_type")
+    discounts = Discount.objects.filter(is_active=True).order_by("discount_type")
     return render(request, "jsquared_app/discount_list.html", {"discounts": discounts})
 
 
@@ -1537,10 +2044,11 @@ def discount_list(request):
 @require_roles("Manager")
 def discount_create(request):
     if request.method == "POST":
-        Discount.objects.create(
+        discount = Discount.objects.create(
             discount_type=request.POST.get("discount_type") or "Suki",
             discount_value=request.POST.get("discount_value") or 0,
         )
+        log_action(request, f"Created discount type: {discount.discount_type}", "Discount", discount.discount_type, action="CREATE")
         messages.success(request, "Discount type added.")
         return redirect("discount_list")
     return render(request, "jsquared_app/discount_form.html", {"mode": "create"})
@@ -1554,6 +2062,7 @@ def discount_edit(request, discount_id: int):
         discount.discount_type = request.POST.get("discount_type") or discount.discount_type
         discount.discount_value = request.POST.get("discount_value") or discount.discount_value
         discount.save()
+        log_action(request, f"Updated discount type: {discount.discount_type}", "Discount", discount.discount_type, action="UPDATE")
         messages.success(request, "Discount updated.")
         return redirect("discount_list")
     return render(request, "jsquared_app/discount_form.html", {"mode": "edit", "discount": discount})
@@ -1562,10 +2071,11 @@ def discount_edit(request, discount_id: int):
 @staff_login_required
 @require_roles("Manager")
 def discount_delete(request, discount_id: int):
-    discount = get_object_or_404(Discount, discount_id=discount_id)
+    discount = get_object_or_404(Discount, discount_id=discount_id, is_active=True)
     if request.method == "POST":
-        discount.delete()
-        messages.success(request, "Discount deleted.")
+        _archive_instance(discount)
+        log_action(request, f"Archived discount type: {discount.discount_type}", "Discount", discount.discount_type, action="ARCHIVE")
+        messages.success(request, "Discount archived. Existing records remain intact.")
         return redirect("discount_list")
     return render(request, "jsquared_app/discount_delete.html", {"discount": discount})
 
@@ -1577,18 +2087,24 @@ def discount_delete(request, discount_id: int):
 @staff_login_required
 @require_roles("Manager")
 def audit_log_list(request):
+    archive_old_logs(30)
+
     q = (request.GET.get("q") or "").strip()
-    logs = AuditLog.objects.all()
+
+    if _auditlog_has_archive_field():
+        logs = AuditLog.objects.filter(is_archived=False).order_by("-created_at")
+    else:
+        logs = AuditLog.objects.all().order_by("-created_at")
+
     if q:
         logs = logs.filter(models.Q(username__icontains=q) | models.Q(details__icontains=q))
 
     simplified_logs = []
     allowed_keywords = [
         "created", "accepted", "cancelled", "served", "completed", "billed out",
-        "changed price", "updated payment", "applied", "added supplier", "deleted supplier",
+        "changed price", "updated payment", "applied", "assigned",
         "recorded transaction", "created inquiry", "accepted inquiry", "updated inquiry",
-        "deleted inquiry", "created account", "updated account", "deleted account",
-        "added ", "deleted ", "updated ", "restored backup"
+        "added ", "deleted ", "updated ", "archived", "downloaded backup", "restored backup"
     ]
 
     for log in logs[:300]:
@@ -1606,6 +2122,8 @@ def audit_log_list(request):
     return render(request, "jsquared_app/audit_log_list.html", {"logs": simplified_logs, "q": q})
 
 
+
+
 @staff_login_required
 @require_roles("Manager")
 def backup_restore(request):
@@ -1616,6 +2134,7 @@ def backup_restore(request):
                 tmp.write(chunk)
             tmp.flush()
             call_command('loaddata', tmp.name)
+        log_action(request, "Restored backup file", "backup", upload.name, action="WRITE")
         messages.success(request, 'Backup restored.')
         return redirect('backup_restore')
     return render(request, 'jsquared_app/backup_restore.html')
@@ -1629,7 +2148,7 @@ def backup_download(request):
     try:
         staff_id = request.session.get('staff_id') or request.session.get('admin_staff_id')
         staff = Staff.objects.filter(staff_id=staff_id).first() if staff_id else None
-        username = staff.staff_email or staff.staff_name if staff else None
+        username = (f"{staff.staff_name} ({staff.staff_role})" if staff else "Unknown user")
         AuditLog.objects.create(
             staff=staff,
             username=username,

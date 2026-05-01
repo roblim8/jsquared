@@ -32,7 +32,7 @@
     <input type="text" class="search-input w-100" id="searchInput" placeholder="Search seafood" oninput="filterCards()">
   </div>
   {% if is_staff or is_manager %}
-  <a href="/admin/jsquared_app/meatitem/add/" class="add-btn">+ Add</a>
+  <a href="{% url 'meat_price_create' %}" class="add-btn">+ Add</a>
   {% endif %}
 </div>
 

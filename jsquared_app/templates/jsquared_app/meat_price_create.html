@@ -1,1 +1,43 @@
-{% extends "jsquared_app/base.html" %}{% block content %}<div class="container py-4"><h2>Add Meat Item</h2><form method="post" class="card p-3">{% csrf_token %}<input class="form-control mb-2" name="meat_type" placeholder="Meat type" required><input class="form-control mb-2" type="number" step="0.01" name="current_price" placeholder="Current price" required><div class="row"><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="weight_min" placeholder="Min weight"></div><div class="col"><input class="form-control mb-2" type="number" step="0.01" name="weight_max" placeholder="Max weight"></div></div><select class="form-select mb-3" name="item_status"><option>Available</option><option>Out of Stock</option><option>Discontinued</option></select><button class="btn btn-primary">Create</button></form></div>{% endblock %}
+{% extends "jsquared_app/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Add Meat Item</h2>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Meat Type -->
+        <div class="mb-3">
+            <label class="form-label">Meat Type</label>
+            <input type="text" name="meat_type" class="form-control" required>
+        </div>
+
+        <!-- Price -->
+        <div class="mb-3">
+            <label class="form-label">Current Price</label>
+            <input type="number" step="0.01" name="current_price" class="form-control" required>
+        </div>
+
+        <!-- Weight Range -->
+        <div class="mb-3">
+            <label class="form-label">Minimum Weight (kg)</label>
+            <input type="number" step="0.01" name="weight_min" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Maximum Weight (kg)</label>
+            <input type="number" step="0.01" name="weight_max" class="form-control" required>
+        </div>
+
+        <!-- Image -->
+        <div class="mb-3">
+            <label class="form-label">Meat Image</label>
+            <input type="file" name="meat_image" class="form-control" accept=".jpg,.jpeg,.png">
+        </div>
+        <!-- Actions -->
+        <button type="submit" class="btn btn-dark">Save Meat Item</button>
+        <a href="{% url 'home' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

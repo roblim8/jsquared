@@ -5,28 +5,67 @@
 
 {% if messages %}
   {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}">{% autoescape off %}{{ message }}{% endautoescape %}</div>
+    <div class="alert alert-{{ message.tags }}">
+      {% autoescape off %}{{ message }}{% endautoescape %}
+    </div>
   {% endfor %}
 {% endif %}
 
 <div class="card p-3">
   <p class="mb-1"><strong>Inquiry #{{ req.inquiry_id }}</strong></p>
   <p class="mb-1">Meat: <strong>{{ req.meat.meat_type }}</strong></p>
-  <p class="mb-3 text-muted">Current price: ₱{{ req.meat.current_price }}</p>
+  <p class="mb-3 text-muted">
+    Current price: ₱{{ req.meat.current_price }}
+  </p>
 
   <form method="post">
     {% csrf_token %}
-    <label class="form-label">New price</label>
-    <input type="number" step="0.01" name="new_price" class="form-control" required>
 
+    <!-- NEW PRICE -->
+    <label class="form-label">New price</label>
+    <input type="number" step="0.01" name="new_price" id="priceInput" class="form-control">
+
+    <!-- STATUS -->
+    <label class="form-label mt-3">Market Availability</label>
+    <select name="item_status" id="statusSelect" class="form-select">
+      <option value="Available" {% if req.meat.item_status == "Available" %}selected{% endif %}>
+        Available
+      </option>
+      <option value="Out of Stock" {% if req.meat.item_status == "Out of Stock" %}selected{% endif %}>
+        Out of Stock
+      </option>
+    </select>
+
+    <!-- NOTES -->
     <label class="form-label mt-3">Notes (optional)</label>
     <textarea name="notes" class="form-control" rows="3"></textarea>
 
+    <!-- ACTIONS -->
     <div class="mt-3 d-flex gap-2">
       <button class="btn btn-primary">Update</button>
       <a class="btn btn-secondary" href="{% url 'inquiry_list' %}">Back</a>
     </div>
   </form>
 </div>
+
+<!-- 🔥 DYNAMIC SCRIPT -->
+<script>
+const statusSelect = document.getElementById("statusSelect");
+const priceInput = document.getElementById("priceInput");
+
+function updatePriceBehavior() {
+    if (statusSelect.value === "Available") {
+        priceInput.required = true;
+        priceInput.disabled = false;
+    } else {
+        priceInput.required = false;
+        priceInput.value = "";
+        priceInput.disabled = true;
+    }
+}
+
+statusSelect.addEventListener("change", updatePriceBehavior);
+updatePriceBehavior();
+</script>
 
 {% endblock %}

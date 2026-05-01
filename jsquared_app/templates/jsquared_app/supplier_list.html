@@ -88,7 +88,7 @@
 </style>
 
 <div class="detail-topbar">
-  <a href="{% if selection_mode %}{{ return_url|default:'/orders/' }}{% else %}{% url 'admin_console' %}{% endif %}" class="back-btn">
+  <a href="{% if selection_mode and return_url %}{{ return_url }}{% else %}{% url 'admin_console' %}{% endif %}" class="back-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="19" y1="12" x2="5" y2="12"/>
       <polyline points="12,19 5,12 12,5"/>
@@ -108,9 +108,11 @@
     </svg>
     <input type="text" class="search-input" id="supplierSearch" placeholder="Search supplier" oninput="filterSuppliers()" value="{{ q }}">
   </div>
-  <a href="{% url 'supplier_create' %}" class="create-submit-btn create-submit-btn-active" style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
+ <a href="{% url 'supplier_create' %}?return_url={{ return_url|urlencode }}&order_item_id={{ order_item_id }}" 
+   class="create-submit-btn create-submit-btn-active"
+   style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
     + New supplier
-  </a>
+</a>
 </div>
 
 <div class="card-list" id="supplierList" style="margin-top: 1.5rem;">
