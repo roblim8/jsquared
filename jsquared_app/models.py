@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.core.validators import FileExtensionValidator
 
 
 class Account(models.Model):
@@ -11,10 +12,21 @@ class Account(models.Model):
     staff_name = models.CharField(max_length=100)
 
     ROLE_CHOICES = [
-        ('cashier', 'Cashier'),
-        ('manager', 'Manager'),
+        ("Staff", "Staff"),
+        ("Cashier", "Cashier"),
+        ("Manager", "Manager"),
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        if self.user_id:
+            self.user.is_active = False
+            self.user.save(update_fields=["is_active"])
+        self.save(update_fields=["is_active", "archived_at"])
 
     def __str__(self):
         return self.staff_name
@@ -28,7 +40,12 @@ class MeatItem(models.Model):
     weight_min = models.FloatField(default=0)
     weight_max = models.FloatField(default=0)
 
-    meat_image = models.ImageField(upload_to="meat_images/", null=True, blank=True)
+    meat_image = models.ImageField(
+        upload_to="meat_images/",
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png"])],
+    )
 
     item_status = models.CharField(
         max_length=24,
@@ -42,6 +59,8 @@ class MeatItem(models.Model):
 
     current_price = models.FloatField(default=0)
     price_updated_at = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "MEAT_ITEM"
@@ -53,13 +72,22 @@ class MeatItem(models.Model):
     def __str__(self) -> str:
         return self.meat_type
 
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.item_status = "Discontinued"
+        self.save(update_fields=["is_active", "archived_at", "item_status", "price_updated_at"])
+
+    def delete(self, *args, **kwargs):
+        self.archive()
+
 
 class CookingStyle(models.Model):
     cooking_style_id = models.AutoField(primary_key=True)
 
     meat_item = models.ForeignKey(
         MeatItem,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="cooking_styles",
         null=True,
         blank=True,
@@ -71,7 +99,14 @@ class CookingStyle(models.Model):
     cooking_charge = models.FloatField(default=0)
     c_weight_min = models.FloatField(default=0)
     c_weight_max = models.FloatField(default=0)
-    icon = models.ImageField(upload_to="icons/", blank=True, null=True)
+    icon = models.ImageField(
+        upload_to="icons/",
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png"])],
+    )
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "COOKING_STYLE"
@@ -107,9 +142,13 @@ class CookingStyle(models.Model):
         super().save(*args, **kwargs)
         self._sync_varied_menu_item()
 
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.save(update_fields=["is_active", "archived_at"])
+
     def delete(self, *args, **kwargs):
-        VariedMenuItem.objects.filter(cooking_style=self, is_byom=False).delete()
-        super().delete(*args, **kwargs)
+        self.archive()
 
 
 class Supplier(models.Model):
@@ -117,13 +156,23 @@ class Supplier(models.Model):
     supplier_name = models.CharField(max_length=100)
     contact_person = models.CharField(max_length=100, blank=True, null=True)
     phone_number = models.CharField(max_length=15)
-    supplier_address = models.CharField(max_length=200)
+    supplier_address = models.CharField(max_length=200, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "SUPPLIER"
 
     def __str__(self) -> str:
         return self.supplier_name
+
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.save(update_fields=["is_active", "archived_at"])
+
+    def delete(self, *args, **kwargs):
+        self.archive()
 
 
 class SupplierTransaction(models.Model):
@@ -135,7 +184,7 @@ class SupplierTransaction(models.Model):
     ]
 
     transaction_id = models.AutoField(primary_key=True)
-    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="transactions")
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="transactions")
     meat = models.ForeignKey(MeatItem, on_delete=models.SET_NULL, null=True, blank=True)
     item_name = models.CharField(max_length=100, blank=True, null=True)
     transaction_date = models.DateField(default=timezone.now)
@@ -143,7 +192,7 @@ class SupplierTransaction(models.Model):
     quantity = models.FloatField(default=0)
     transaction_amount = models.FloatField(default=0)
     payment_status = models.CharField(
-        max_length=10,
+        max_length=14,
         default=PAYMENT_PENDING,
         choices=PAYMENT_CHOICES,
     )
@@ -168,6 +217,36 @@ class SupplierTransaction(models.Model):
         super().save(*args, **kwargs)
 
 
+class PurchaseItem(models.Model):
+    purchase_item_id = models.AutoField(primary_key=True)
+    transaction = models.ForeignKey(
+        SupplierTransaction,
+        on_delete=models.CASCADE,
+        related_name="purchase_items",
+        db_column="transaction_id",
+    )
+    meat = models.ForeignKey(
+        MeatItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="meat_id",
+    )
+    quantity = models.FloatField(default=0)
+    unit_price = models.FloatField(default=0)
+
+    class Meta:
+        db_table = "PURCHASE_ITEM"
+
+    @property
+    def line_total(self) -> float:
+        return round(float(self.quantity or 0) * float(self.unit_price or 0), 2)
+
+    def __str__(self) -> str:
+        item = self.meat.meat_type if self.meat_id else "Purchased item"
+        return f"{item} - {self.quantity} kg"
+
+
 class AuditLog(models.Model):
     audit_log_id = models.AutoField(primary_key=True)
     staff = models.ForeignKey("Staff", on_delete=models.SET_NULL, null=True, blank=True)
@@ -179,6 +258,7 @@ class AuditLog(models.Model):
     object_repr = models.CharField(max_length=200, blank=True, null=True)
     details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
 
     class Meta:
         db_table = "AUDIT_LOG"
@@ -192,9 +272,9 @@ class AuditLog(models.Model):
 class VariedMenuItem(models.Model):
     varied_item_id = models.AutoField(primary_key=True)
 
-    meat = models.ForeignKey(MeatItem, on_delete=models.CASCADE, db_column="meat_id")
+    meat = models.ForeignKey(MeatItem, on_delete=models.PROTECT, db_column="meat_id")
     cooking_style = models.ForeignKey(
-        CookingStyle, on_delete=models.CASCADE, db_column="cooking_style_id"
+        CookingStyle, on_delete=models.PROTECT, db_column="cooking_style_id"
     )
     supplier = models.ForeignKey(
         Supplier, on_delete=models.SET_NULL, null=True, blank=True, db_column="supplier_id"
@@ -203,6 +283,8 @@ class VariedMenuItem(models.Model):
     # item_price = cooking add-on charge for this meat + style combo
     item_price = models.FloatField(default=0)
     is_byom = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "VARIED_MENU_ITEM"
@@ -218,12 +300,22 @@ class FixedMenuItem(models.Model):
     item_description = models.CharField(max_length=200, blank=True, null=True)
     item_category = models.CharField(max_length=50)
     fixed_price = models.FloatField(default=0)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "FIXED_MENU_ITEM"
 
     def __str__(self) -> str:
         return self.item_name
+
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.save(update_fields=["is_active", "archived_at"])
+
+    def delete(self, *args, **kwargs):
+        self.archive()
 
 
 class Discount(models.Model):
@@ -233,12 +325,22 @@ class Discount(models.Model):
         choices=[("PWD", "PWD"), ("Senior Citizen", "Senior Citizen"), ("Suki", "Suki")],
     )
     discount_value = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "DISCOUNT"
 
     def __str__(self) -> str:
         return f"{self.discount_type} ({self.discount_value}%)"
+
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.save(update_fields=["is_active", "archived_at"])
+
+    def delete(self, *args, **kwargs):
+        self.archive()
 
 class Staff(models.Model):
     staff_id = models.AutoField(primary_key=True)
@@ -254,6 +356,8 @@ class Staff(models.Model):
     staff_email = models.CharField(max_length=50, unique=True)
     staff_address = models.CharField(max_length=200, blank=True, null=True)
     staff_password = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "STAFF"
@@ -261,11 +365,19 @@ class Staff(models.Model):
     def __str__(self) -> str:
         return f"{self.staff_name} ({self.staff_role})"
 
+    def archive(self):
+        self.is_active = False
+        self.archived_at = timezone.now()
+        self.save(update_fields=["is_active", "archived_at"])
+
+    def delete(self, *args, **kwargs):
+        self.archive()
+
 
 class Order(models.Model):
     order_id = models.AutoField(primary_key=True)
 
-    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, db_column="staff_id")
+    staff = models.ForeignKey(Staff, on_delete=models.PROTECT, db_column="staff_id")
     discount = models.ForeignKey(
         Discount, on_delete=models.SET_NULL, null=True, blank=True, db_column="discount_id"
     )
@@ -294,6 +406,7 @@ class Order(models.Model):
     )
 
     created_at = models.DateTimeField(default=timezone.now)
+    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
 
     applied_discount = models.IntegerField(blank=True, null=True)
     total_amount = models.FloatField(default=0)
@@ -456,14 +569,14 @@ class OrderItem(models.Model):
 
     fixed_item = models.ForeignKey(
         FixedMenuItem,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         db_column="fixed_item_id",
     )
     varied_item = models.ForeignKey(
         VariedMenuItem,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         db_column="varied_item_id",
@@ -525,10 +638,10 @@ class OrderItem(models.Model):
 class PriceInquiryRequest(models.Model):
     inquiry_id = models.AutoField(primary_key=True)
 
-    meat = models.ForeignKey(MeatItem, on_delete=models.CASCADE, db_column="meat_id")
+    meat = models.ForeignKey(MeatItem, on_delete=models.PROTECT, db_column="meat_id")
     requested_by = models.ForeignKey(
         "Staff",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="price_requests",
         db_column="requested_by",
     )
