@@ -14,12 +14,6 @@
   </a>
 </div>
 
-{% if messages %}
-  {% for message in messages %}
-    <div class="alert-toast alert-{{ message.tags }} no-print">{{ message }}</div>
-  {% endfor %}
-{% endif %}
-
 <style>
 @media print {
   .no-print { display: none !important; }

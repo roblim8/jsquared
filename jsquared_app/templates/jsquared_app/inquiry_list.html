@@ -19,12 +19,6 @@
   </form>
 </div>
 
-{% if messages %}
-  {% for message in messages %}
-    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
-
 <!-- ── PENDING (In Progress) ── -->
 {% if pending %}
 <p class="section-label" style="margin-top:1rem;">My Inquiries</p>
