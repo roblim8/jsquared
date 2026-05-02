@@ -2,6 +2,7 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
+<!-- Back -->
 <div class="detail-topbar">
   <a href="{% url 'admin_console' %}" class="back-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -21,7 +22,6 @@
       <label class="form-label">Start date</label>
       <input type="date" name="start_date" value="{{ start_date }}" class="form-control" onchange="this.form.submit()">
     </div>
-
     <div class="col-md-3">
       <label class="form-label">End date</label>
       <input type="date" name="end_date" value="{{ end_date }}" class="form-control" onchange="this.form.submit()">
@@ -35,14 +35,12 @@
         <h4 class="mb-0 text-success">₱ {{ total_revenue|floatformat:2 }}</h4>
       </div>
     </div>
-
     <div class="col-md-4">
       <div class="card p-3">
         <p class="text-muted mb-1">Supplier Expenses</p>
         <h4 class="mb-0 text-danger">₱ {{ total_expenses|floatformat:2 }}</h4>
       </div>
     </div>
-
     <div class="col-md-4">
       <div class="card p-3">
         <p class="text-muted mb-1">Net Cash Flow</p>
@@ -55,7 +53,6 @@
 
   <div class="card p-3">
     <h4 class="mb-3">Transaction History</h4>
-
     <div class="table-responsive">
       <table class="table table-borderless align-middle mb-0">
         <thead>
@@ -65,31 +62,22 @@
             <th class="py-3 text-end">Amount</th>
           </tr>
         </thead>
-
         <tbody>
           {% for item in transactions %}
           <tr>
             <td class="py-3">{{ item.date|date:"m/d/Y" }}</td>
-
             <td class="py-3">{{ item.label }}</td>
-
             <td class="py-3 text-end">
               {% if item.type == "sale" %}
-                <span class="text-success fw-semibold">
-                  +₱ {{ item.amount|floatformat:2 }}
-                </span>
+                <span class="text-success fw-semibold">+₱ {{ item.amount|floatformat:2 }}</span>
               {% else %}
-                <span class="text-danger fw-semibold">
-                  -₱ {{ item.amount|floatformat:2 }}
-                </span>
+                <span class="text-danger fw-semibold">-₱ {{ item.amount|floatformat:2 }}</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-center py-4">
-              No transactions found for this date range.
-            </td>
+            <td colspan="3" class="text-center py-4">No transactions found for this date range.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -97,5 +85,4 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
