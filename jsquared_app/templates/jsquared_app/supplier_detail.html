@@ -1,6 +1,110 @@
 {% extends "jsquared_app/base.html" %}
 {% block bottom_nav %}{% endblock %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
+
+<style>
+/* ── Supplier detail page styles ── */
+.sup-tx-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  border: 1.5px solid transparent;
+  margin-bottom: 10px;
+}
+.sup-tx-editing { border-color: var(--accent); }
+
+.sup-tx-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.sup-tx-date { font-size: 12px; color: var(--muted); }
+.sup-tx-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.sup-tx-paid    { background: #d4edda; color: #2E8B1F; }
+.sup-tx-pending { background: #FFF3CD; color: #856404; }
+
+.sup-tx-item {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--black);
+  margin: 0 0 10px;
+}
+
+.sup-tx-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  background: #f7f7f0;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.sup-tx-stat { display: flex; flex-direction: column; gap: 2px; }
+.sup-tx-stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sup-tx-stat-val { font-size: 13px; font-weight: 600; color: var(--black); }
+.sup-tx-total    { color: var(--accent); }
+
+.sup-tx-notes {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+
+.sup-tx-actions { display: flex; gap: 8px; }
+.sup-tx-action-btn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+.sup-tx-edit-btn { background: #f0f0e8; color: var(--black); }
+.sup-tx-del-btn  { background: #FFF0F0; color: #FF383C; }
+
+.sup-date-input {
+  border: 1.5px solid #e8e8e0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  color: var(--black);
+  background: #fff;
+  width: 110px;
+}
+.sup-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0f0e8;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--black);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+</style>
 
 <div class="detail-topbar">
   <a href="{% url 'supplier_list' %}" class="back-btn">
@@ -12,75 +116,200 @@
     Back
   </a>
 </div>
+<div class="page-header">
+  <h1 class="page-title">{{ supplier.supplier_name }}</h1>
+</div>
 
-<div class="container py-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>{{ supplier.supplier_name }}</h2>
-    <a href="{% url 'supplier_delete' supplier.supplier_id %}" class="btn btn-outline-danger">Delete</a>
+<!-- ── Edit supplier (collapseable) ── -->
+<div class="od-card" style="margin-bottom:1rem;">
+
+  <!-- Collapse toggle header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;"
+       onclick="toggleSupplierDetails()">
+    <p style="font-size:16px;font-weight:700;color:var(--black);margin:0;">Supplier details</p>
+    <svg id="supplierChevron" width="20" height="20" viewBox="0 0 24 24" fill="none"
+         stroke="#888" stroke-width="2.5" stroke-linecap="round"
+         style="transition:transform 0.2s;flex-shrink:0;">
+      <polyline points="6,9 12,15 18,9"/>
+    </svg>
   </div>
 
-  <!-- EDIT SUPPLIER -->
-  <div class="card p-3 mb-4">
-    <h5>Edit Supplier</h5>
+  <!-- Collapseable content -->
+  <div id="supplierDetailsBody" style="display:none;margin-top:1rem;">
     <form method="post">
       {% csrf_token %}
-      <input class="form-control mb-2" name="supplier_name" value="{{ supplier.supplier_name }}" required>
-      <input class="form-control mb-2" name="contact_person" value="{{ supplier.contact_person|default:'' }}">
-      <input class="form-control mb-2" name="phone_number" value="{{ supplier.phone_number }}" required>
-      <textarea class="form-control mb-3" name="supplier_address" required>{{ supplier.supplier_address }}</textarea>
-      <button class="btn btn-primary">Save Changes</button>
+      <input type="hidden" name="form_type" value="edit_supplier">
+
+      <label class="adm-field-label">Name</label>
+      <div class="login-input-wrapper" style="margin-bottom:12px;">
+        <input class="login-input" name="supplier_name" value="{{ supplier.supplier_name }}" required>
+      </div>
+
+      <label class="adm-field-label">Contact person</label>
+      <div class="login-input-wrapper" style="margin-bottom:12px;">
+        <input class="login-input" name="contact_person"
+               value="{{ supplier.contact_person|default:'' }}" placeholder="Optional">
+      </div>
+
+      <label class="adm-field-label">Phone number</label>
+      <div class="login-input-wrapper" style="margin-bottom:12px;">
+        <input class="login-input" name="phone_number" value="{{ supplier.phone_number }}" required>
+      </div>
+
+      <label class="adm-field-label">Address</label>
+      <div class="login-input-wrapper" style="margin-bottom:16px;">
+        <input class="login-input" name="supplier_address"
+               value="{{ supplier.supplier_address }}" required>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="create-submit-btn create-submit-btn-active" style="flex:1;">
+          Save Changes
+        </button>
+        <a href="{% url 'supplier_delete' supplier.supplier_id %}"
+           class="od-btn-cancel"
+           style="flex:1;text-align:center;display:flex;align-items:center;justify-content:center;text-decoration:none;">
+          Delete
+        </a>
+      </div>
     </form>
   </div>
 
-  <!-- TOTAL PENDING -->
-  <div class="card p-3 mb-4">
-    <h5>Total Pending Payment</h5>
-    <div class="fs-3 fw-bold text-danger">₱ {{ total_pending_payment|floatformat:2 }}</div>
-  </div>
-
-  <!-- TRANSACTION HISTORY ONLY -->
-  <div class="card p-3 mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5>Transactions</h5>
-      <span class="text-muted small">{{ transaction_count }} shown</span>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-sm table-bordered align-middle">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Meat Item</th>
-            <th>Unit Price</th>
-            <th>Quantity (kg)</th>
-            <th>Total Amount</th>
-            <th>Status</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for tx in transactions %}
-          <tr>
-            <td>{{ tx.transaction_date|date:"Y-m-d" }}</td>
-            <td>{% if tx.meat %}{{ tx.meat.meat_type }}{% else %}{{ tx.item_name }}{% endif %}</td>
-            <td>₱ {{ tx.unit_price|floatformat:2 }}</td>
-            <td>{{ tx.quantity|floatformat:2 }}</td>
-            <td>₱ {{ tx.transaction_amount|floatformat:2 }}</td>
-            <td>
-              <span class="badge {% if tx.payment_status == 'Completed' %}text-bg-success{% else %}text-bg-warning{% endif %}">
-                {{ tx.payment_status }}
-              </span>
-            </td>
-            <td>{{ tx.notes|default:"—" }}</td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="7" class="text-center">No transactions yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
 </div>
+
+<!-- ── Pending payment ── -->
+<div class="od-card" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 4px;">Total Pending Payment</p>
+    <p style="font-size:24px;font-weight:800;color:#FF383C;margin:0;">
+      ₱ {{ total_pending_payment|floatformat:2 }}
+    </p>
+  </div>
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+       stroke="#FF383C" stroke-width="1.5" stroke-linecap="round">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+</div>
+
+<!-- ── Transactions ── -->
+<div class="od-card" style="margin-bottom:2rem;">
+
+  <!-- Card header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+    <div>
+      <p style="font-size:18px;font-weight:800;color:var(--black);margin:0;">Transactions</p>
+      <p style="font-size:12px;color:var(--muted);margin:2px 0 0;">{{ transaction_count }} record{{ transaction_count|pluralize }}</p>
+    </div>
+
+    <!-- Date filter -->
+    <form method="get" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <input type="date" name="start_date" class="sup-date-input"
+             value="{{ start_date }}" title="From">
+      <input type="date" name="end_date" class="sup-date-input"
+             value="{{ end_date }}" title="To">
+      <button type="submit" class="sup-icon-btn" title="Filter">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"/>
+        </svg>
+      </button>
+      <a href="{% url 'supplier_detail' supplier.supplier_id %}" class="sup-icon-btn" title="Clear">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </a>
+    </form>
+  </div>
+
+  <hr style="border:none;border-top:1px solid #f0f0e8;margin:0 0 1rem;">
+
+  <!-- Transaction cards -->
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    {% for tx in transactions %}
+    <div class="sup-tx-card {% if edit_tx and edit_tx.transaction_id == tx.transaction_id %}sup-tx-editing{% endif %}">
+
+      <!-- Date + status -->
+      <div class="sup-tx-top">
+        <span class="sup-tx-date">{{ tx.transaction_date|date:"M j, Y" }}</span>
+        <span class="sup-tx-badge {% if tx.payment_status == 'Completed' or tx.payment_status == 'Paid' %}sup-tx-paid{% else %}sup-tx-pending{% endif %}">
+          {% if tx.payment_status == 'Paid' %}Completed
+          {% elif tx.payment_status == 'Unpaid' %}Pending
+          {% else %}{{ tx.payment_status }}{% endif %}
+        </span>
+      </div>
+
+      <!-- Item name -->
+      <p class="sup-tx-item">
+        {% if tx.meat %}{{ tx.meat.meat_type }}
+        {% else %}{{ tx.item_name|default:'—' }}{% endif %}
+      </p>
+
+      <!-- Breakdown grid -->
+      <div class="sup-tx-breakdown">
+        <div class="sup-tx-stat">
+          <span class="sup-tx-stat-label">Unit price</span>
+          <span class="sup-tx-stat-val">₱{{ tx.unit_price|floatformat:2 }}</span>
+        </div>
+        <div class="sup-tx-stat">
+          <span class="sup-tx-stat-label">Quantity</span>
+          <span class="sup-tx-stat-val">{{ tx.quantity|floatformat:2 }} kg</span>
+        </div>
+        <div class="sup-tx-stat">
+          <span class="sup-tx-stat-label">Total</span>
+          <span class="sup-tx-stat-val sup-tx-total">₱{{ tx.transaction_amount|floatformat:2 }}</span>
+        </div>
+      </div>
+
+      {% if tx.notes %}
+      <p class="sup-tx-notes">{{ tx.notes }}</p>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="empty-state" style="margin:0;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+      </svg>
+      <p>No transactions yet.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+(function() {
+  const unitInput  = document.querySelector('input[name="unit_price"]');
+  const qtyInput   = document.querySelector('input[name="quantity"]');
+  const totalInput = document.getElementById('totalAmountDisplay');
+  function updateTotal() {
+    const unit  = parseFloat(unitInput?.value  || 0);
+    const qty   = parseFloat(qtyInput?.value   || 0);
+    const total = (!isNaN(unit) && !isNaN(qty)) ? unit * qty : 0;
+    if (totalInput) totalInput.value = total.toFixed(2);
+  }
+  unitInput?.addEventListener('input', updateTotal);
+  qtyInput?.addEventListener('input',  updateTotal);
+  updateTotal();
+})();
+
+function toggleSupplierDetails() {
+  const body = document.getElementById('supplierDetailsBody');
+  const chevron = document.getElementById('supplierChevron');
+
+  const isOpen = body.style.display === 'block';
+
+  if (isOpen) {
+    body.style.display = 'none';
+    chevron.style.transform = 'rotate(0deg)';
+  } else {
+    body.style.display = 'block';
+    chevron.style.transform = 'rotate(180deg)';
+  }
+}
+</script>
 
 {% endblock %}

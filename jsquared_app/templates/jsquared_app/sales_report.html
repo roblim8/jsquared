@@ -26,18 +26,6 @@
       <label class="form-label">End date</label>
       <input type="date" name="end_date" value="{{ end_date }}" class="form-control" onchange="this.form.submit()">
     </div>
-
-    <div class="col-md-3 d-flex gap-2">
-      <a class="btn btn-outline-success w-100"
-         href="{% url 'sales_report_export_csv' %}?start_date={{ start_date }}&end_date={{ end_date }}">
-        CSV
-      </a>
-
-      <a class="btn btn-outline-success w-100"
-         href="{% url 'sales_report_export_xlsx' %}?start_date={{ start_date }}&end_date={{ end_date }}">
-        XLSX
-      </a>
-    </div>
   </form>
 
   <div class="row g-3 mb-3">

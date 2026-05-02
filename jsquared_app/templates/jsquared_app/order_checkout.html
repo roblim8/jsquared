@@ -3,6 +3,18 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
+<style>
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  .od-card { box-shadow: none !important; border: none !important; margin: 0 !important; }
+}
+
+table {
+  border-spacing: 16px 0px; border-collapse: separate;
+}
+</style>
+
 <div class="detail-topbar no-print">
   <a href="{% url 'order_history' %}" class="back-btn">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -13,14 +25,6 @@
     Back
   </a>
 </div>
-
-<style>
-@media print {
-  .no-print { display: none !important; }
-  body { background: white !important; }
-  .od-card { box-shadow: none !important; border: none !important; margin: 0 !important; }
-}
-</style>
 
 <div class="od-card" style="margin-top:1rem;">
   <div class="od-card-top" style="align-items:center; margin-bottom:6px;">

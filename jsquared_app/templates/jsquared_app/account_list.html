@@ -15,12 +15,6 @@
   </a>
 </div>
 
-{% if messages %}
-  {% for message in messages %}
-    <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
-  {% endfor %}
-{% endif %}
-
 <div class="page-header">
   <h1 class="page-title">Accounts</h1>
   <a href="{% url 'account_create' %}" class="add-btn">+ Create</a>
