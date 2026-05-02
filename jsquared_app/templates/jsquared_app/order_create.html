@@ -196,53 +196,42 @@
 </div>
 
 <div id="summaryView" style="display:none;">
-  <div class="sum-customer-row" style="margin-top: 1.2rem;">
-    <input class="sum-customer-input" id="customerNameInput" type="text"
-           placeholder="Enter customer name" maxlength="50">
+  <div class="container py-4">
+    <form class="card p-3 mt-3" onsubmit="event.preventDefault(); placeOrder();">
+      <h2 class="page-title mb-3">Order Summary</h2>
+      <div class="mb-3">
+        <label class="form-label">Customer Name</label>
+        <input class="form-control" id="customerNameInput" type="text" placeholder="Enter customer name" maxlength="50" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Table Number</label>
+        <input class="form-control" id="tableNumberInput" type="text" placeholder="Enter table number" maxlength="50" required>
+      </div>
+      <div id="summaryItems"></div>
+      <hr style="border:none;border-top:1px solid #eee;margin:1rem 0 0.75rem;">
+      <div class="sum-subtotal-row">
+        <span class="sum-subtotal-label">Subtotal</span>
+        <span class="sum-subtotal-val" id="subtotalVal">₱ 0.00</span>
+      </div>
+      <div class="sum-subtotal-row">
+        <span class="sum-subtotal-label">VAT</span>
+        <span class="sum-subtotal-val">0.00</span>
+      </div>
+      <p class="cr-validation" id="summaryError" style="display:none;margin-top:8px;">Please enter a customer name.</p>
+      <div class="sum-total-row mt-3">
+        <span class="sum-total-label">Total Amount</span>
+        <span class="sum-total-val" id="totalVal">₱ 0.00</span>
+      </div>
+      <button class="create-submit-btn mt-3 w-100" type="submit" id="placeOrderBtn">Place Order</button>
+    </form>
+    <form id="orderForm" method="post" action="{% url 'order_create' %}" style="display:none;">
+      {% csrf_token %}
+      <input type="hidden" name="customer_name" id="formCustomerName">
+      <input type="hidden" name="table_num" id="formTableNum" value="1">
+      <input type="hidden" name="items_json" id="formItemsJson">
+      <input type="hidden" name="order_type" id="formOrderType" value="0">
+    </form>
   </div>
-
-  <div class="sum-customer-row" style="margin-top: 1.2rem;">
-    <input class="sum-customer-input" id="tableNumberInput" type="text"
-           placeholder="Enter table number" maxlength="50">
-  </div>
-
-  <div class="sum-card" style="margin-top: 1.2rem;">
-    <div class="sum-card-header">
-      <p class="sum-card-title">Order Summary</p>
-      <button class="sum-add-items-btn" onclick="showCreate()" type="button">Add items</button>
-    </div>
-
-    <div id="summaryItems"></div>
-
-    <hr style="border:none;border-top:1px solid #eee;margin:1rem 0 0.75rem;">
-
-    <div class="sum-subtotal-row">
-      <span class="sum-subtotal-label">Subtotal</span>
-      <span class="sum-subtotal-val" id="subtotalVal">₱ 0.00</span>
-    </div>
-    <div class="sum-subtotal-row">
-      <span class="sum-subtotal-label">VAT</span>
-      <span class="sum-subtotal-val">0.00</span>
-    </div>
-
-    <p class="cr-validation" id="summaryError" style="display:none;margin-top:8px;">
-      Please enter a customer name.</p>
-  </div>
-
-  <div class="sum-sticky-bar">
-    <div class="sum-total-row">
-      <span class="sum-total-label">Total Amount</span>
-      <span class="sum-total-val" id="totalVal">₱ 0.00</span>
-    </div>
-    <button class="sum-place-btn" onclick="placeOrder()">Place Order</button>
-  </div>
-
-  <form id="orderForm" method="post" action="{% url 'order_create' %}" style="display:none;">
-    {% csrf_token %}
-    <input type="hidden" name="customer_name" id="formCustomerName">
-    <input type="hidden" name="table_num" value="1">
-    <input type="hidden" name="items_json" id="formItemsJson">
-  </form>
 </div>
 
 <div class="inq-modal-overlay" id="variedModal" style="display:none;" onclick="closeVariedModal()">
@@ -760,12 +749,10 @@ function placeOrder() {
   }
 
   document.getElementById('summaryError').style.display = '';
-
   document.getElementById('formCustomerName').value = name;
   document.getElementById('formItemsJson').value = JSON.stringify(cartItems);
-
-  document.querySelector('input[name="table_num"]').value = table_num;
-
+  document.getElementById('formTableNum').value = table_num || 1;
+  document.getElementById('formOrderType').value = '0';
   document.getElementById('orderForm').submit();
 }
 </script>
