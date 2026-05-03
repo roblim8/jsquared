@@ -30,7 +30,7 @@
     {% if acc.staff_role == "Cashier" %}
       <a href="{% url 'account_detail' acc.staff_id %}" 
          class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; margin-bottom: 8px;">
+         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
         <div class="flex-grow-1">
           <div class="fw-semibold">{{ acc.staff_name }}</div>
           <div class="text-muted">{{ acc.staff_role }}</div>
@@ -45,7 +45,7 @@
     {% if acc.staff_role == "Manager" %}
       <a href="{% url 'account_detail' acc.staff_id %}" 
          class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; margin-bottom: 8px;">
+         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
         <div class="flex-grow-1">
           <div class="fw-semibold">{{ acc.staff_name }}</div>
           <div class="text-muted">{{ acc.staff_role }}</div>
@@ -60,7 +60,7 @@
     {% if acc.staff_role == "Staff" %}
       <a href="{% url 'account_detail' acc.staff_id %}" 
          class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; margin-bottom: 8px;">
+         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
         <div class="flex-grow-1">
           <div class="fw-semibold">{{ acc.staff_name }}</div>
           <div class="text-muted">{{ acc.staff_role }}</div>
