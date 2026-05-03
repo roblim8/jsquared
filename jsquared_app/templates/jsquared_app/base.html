@@ -13,7 +13,14 @@
 <body>
 
   <main class="page-scrollable">
-    {% if messages %}<div class="container mt-3">{% for message in messages %}<div class="alert alert-{{ message.tags|default:"info" }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% if messages %}
+      <div class="container mt-3">
+        {% for message in messages %}
+          <div class="alert-toast alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    
     {% block content %}{% endblock %}
   </main>
 

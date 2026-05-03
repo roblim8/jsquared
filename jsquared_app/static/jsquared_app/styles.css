@@ -386,6 +386,27 @@ a { /* makes links look like buttons */
   border-radius: 50%;
 }
 
+.alert-toast {
+  margin: 0 1.25rem 0.75rem;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.alert-success {
+  background: #d4edda;
+  color: #2E8B1F;
+  border: 1px solid #c3e6cb;
+}
+
+.alert-error,
+.alert-danger {
+  background: #FFF0F0;
+  color: #FF383C;
+  border: 1px solid #FFD0D0;
+}
+
 /* ── FAB ── */
 .fab {
   position: fixed;
