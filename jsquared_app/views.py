@@ -250,18 +250,6 @@ def require_roles(*roles: str):
 
     return decorator
 
-
-def _ensure_default_discounts():
-    defaults = [("PWD", 20.0), ("Senior Citizen", 20.0), ("Suki", 0.0)]
-    for discount_type, discount_value in defaults:
-        discount, created = Discount.objects.get_or_create(
-            discount_type=discount_type,
-            defaults={"discount_value": discount_value},
-        )
-        if discount_type == "Suki" and float(discount.discount_value or 0) != 0:
-            discount.discount_value = 0.0
-            discount.save(update_fields=["discount_value"])
-
 # ============================================================
 # LOGIN / LOGOUT
 # ============================================================
@@ -365,7 +353,6 @@ def manager_login(request):
 
 @admin_login_required
 def admin_console(request):
-    _ensure_default_discounts()
     stats = {
         "accounts": Staff.objects.filter(is_active=True).count(),
         "suppliers": Supplier.objects.filter(is_active=True).count(),
@@ -930,7 +917,6 @@ def order_list(request):
 @staff_login_required
 @require_roles("Staff", "Cashier", "Manager")
 def order_history(request):
-    _ensure_default_discounts()
     role = request.session.get(SESSION_STAFF_ROLE)
     history_orders = Order.objects.filter(order_status__in=["Completed", "Cancelled", "Served"]).order_by("-created_at")
     return render(request, "jsquared_app/order_history.html", {
@@ -1242,7 +1228,6 @@ def order_update_discount(request, order_id: int):
 @staff_login_required
 @require_roles("Cashier", "Manager")
 def order_checkout(request, order_id: int):
-    _ensure_default_discounts()
     order = get_object_or_404(Order, order_id=order_id)
 
     if order.order_status not in ["Completed", "Served"]:
@@ -2047,7 +2032,6 @@ def supplier_transaction_delete(request, supplier_id: int, transaction_id: int):
 @staff_login_required
 @require_roles("Manager")
 def discount_list(request):
-    _ensure_default_discounts()
     discounts = Discount.objects.filter(is_active=True).order_by("discount_type")
     return render(request, "jsquared_app/discount_list.html", {"discounts": discounts})
 
