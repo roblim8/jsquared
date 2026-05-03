@@ -1,124 +1,207 @@
 {% extends "jsquared_app/base.html" %}
-{% block bottom_nav %}{% endblock %}
+{% load static %}
 {% load humanize %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<!-- Back -->
-<div class="detail-topbar">
-  <a href="{% url 'admin_console' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable { max-width:100%!important; width:100%!important; }
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}
 
-<div class="page-header">
-  <h1 class="page-title">Sales Report</h1>
-</div>
+.sup-date-input {
+  border: 1.5px solid #e8e8e0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  color: var(--black);
+  background: #fff;
+  width: 130px;
+}
 
-<div class="container py-4">
-  <form method="get" class="row g-2 mb-3 align-items-end">
-    <div class="col-md-6">
-      <label class="form-label">Start date</label>
-      <input type="date" name="start_date" value="{{ start_date }}" class="form-control" onchange="this.form.submit()">
-    </div>
-    <div class="col-md-6">
-      <label class="form-label">End date</label>
-      <input type="date" name="end_date" value="{{ end_date }}" class="form-control" onchange="this.form.submit()">
-    </div>
-  </form>
+.sup-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0f0e8;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--black);
+  text-decoration: none;
+  flex-shrink: 0;
+}
 
-  <div class="row g-3 mb-3">
-    <div class="col-md-4">
-      <div class="card p-3">
-        <p class="text-muted mb-1" style="font-size:12px;">Total Sales</p><p></p>
-        <p class="mb-0 text-success fw-bold" style="font-size:15px;white-space:nowrap;">
-          ₱ {{ total_revenue|floatformat:2|intcomma }}
-        </p>
-      </div>
+.sup-icon-btn:hover {
+  background: #e8e8df;
+}
+</style>
+
+{% include "jsquared_app/admin_navigation.html" with active="sales" %}
+
+<div class="adm-main">
+
+  <div class="adm-topbar">
+    <div class="adm-topbar-greeting">
+      <h2>Sales Report</h2>
+      <p>Revenue, expenses &amp; transaction history</p>
     </div>
-    <div class="col-md-4">
-      <div class="card p-3">
-        <p class="text-muted mb-1" style="font-size:12px;">Supplier Expenses</p>
-        <p class="mb-0 text-danger fw-bold" style="font-size:15px;white-space:nowrap;">
-          ₱ {{ total_expenses|floatformat:2|intcomma }}
-        </p>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card p-3">
-        <p class="text-muted mb-1" style="font-size:12px;">Net Cash Flow</p>
-        <p class="mb-0 fw-bold {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %}"
-           style="font-size:15px;white-space:nowrap;">
-          ₱ {{ net_cash_flow|floatformat:2|intcomma }}
-        </p>
-      </div>
-    </div>
+    <a href="{% url 'sales_report_export_xlsx' %}?start_date={{ start_date }}&end_date={{ end_date }}"
+       class="create-submit-btn create-submit-btn-active"
+       style="text-decoration:none;padding:10px 20px;width:auto;display:inline-flex;
+              align-items:center;gap:8px;border-radius:12px;white-space:nowrap;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="7,10 12,15 17,10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export XLSX
+    </a>
   </div>
 
-  {% if payment_breakdown %}
-  <div class="card p-3 mb-3">
-    <p class="text-muted mb-2" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
-      Sales by Payment Method
-    </p>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;">
-      {% for method, amount in payment_breakdown %}
-      <div style="flex:1;min-width:80px;background:#f7f7f0;border-radius:10px;padding:10px 12px;">
-        <p style="font-size:11px;color:#888;margin:0 0 3px;">{{ method }}</p>
-        <p class="text-success fw-bold mb-0" style="font-size:14px;white-space:nowrap;">
-          ₱ {{ amount|floatformat:2 }}
-        </p>
+  <div class="adm-content">
+    <!-- Summary cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:14px;padding:20px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:12px;color:var(--muted);font-weight:600;
+                     text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px;">Total Sales</p>
+          <p style="font-size:26px;font-weight:800;color:#2E8B1F;margin:0;white-space:nowrap;">
+            ₱ {{ total_revenue|floatformat:2|intcomma }}
+          </p>
+        </div>
       </div>
-      {% endfor %}
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:14px;padding:20px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:12px;color:var(--muted);font-weight:600;
+                     text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px;">Supplier Expenses</p>
+          <p style="font-size:26px;font-weight:800;color:#FF383C;margin:0;white-space:nowrap;">
+            ₱ {{ total_expenses|floatformat:2|intcomma }}
+          </p>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:14px;padding:20px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:12px;color:var(--muted);font-weight:600;
+                     text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px;">Net Cash Flow</p>
+          <p style="font-size:26px;font-weight:800;
+                     color:{% if net_cash_flow >= 0 %}#2E8B1F{% else %}#FF383C{% endif %};
+                     margin:0;white-space:nowrap;">
+            ₱ {{ net_cash_flow|floatformat:2|intcomma }}
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  {% endif %}
 
-  <div class="card p-3">
-    <h4 class="mb-3">Transaction History</h4>
-    <div class="table-responsive">
-      <table class="table table-borderless align-middle mb-0">
-        <thead>
-          <tr style="border-bottom: 1px solid #d9d9d9;">
-            <th class="py-3">Date</th>
-            <th class="py-3">Reference</th>
-            <th class="py-3">Method</th>
-            <th class="py-3">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in transactions %}
-          <tr>
-            <td class="py-3">{{ item.date|date:"m/d/Y" }}</td>
-            <td class="py-3">{{ item.label }}</td>
-            <td class="py-3" style="font-size:13px;color:#888;">
-              {% if item.payment_method %}{{ item.payment_method }}{% else %}—{% endif %}
-            </td>
-            <td class="py-3">
-              {% if item.type == "sale" %}
-                <span class="text-success fw-semibold">+₱ {{ item.amount|floatformat:2|intcomma }}</span>
-              {% else %}
-                <span class="text-danger fw-semibold">-₱ {{ item.amount|floatformat:2|intcomma }}</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4" class="text-center py-4">No transactions found for this date range.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- Payment method breakdown -->
+    {% if payment_breakdown %}
+    <div style="background:#fff;border-radius:14px;padding:20px;
+                box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;
+                 letter-spacing:0.05em;margin:0 0 12px;">Sales by Payment Method</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        {% for method, amount in payment_breakdown %}
+        <div style="background:#f7f7f0;border-radius:12px;padding:12px 16px;min-width:120px;">
+          <p style="font-size:11px;color:#888;margin:0 0 4px;">{{ method }}</p>
+          <p style="font-size:15px;font-weight:800;color:#2E8B1F;margin:0;white-space:nowrap;">
+            ₱ {{ amount|floatformat:2|intcomma }}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
+
+    <!-- Transaction table -->
+    <div style="background:#fff;border-radius:14px;padding:20px;
+                box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <h5 style="font-size:16px;font-weight:800;color:var(--black);margin:0;">
+          Transaction History
+        </h5>
+        <form method="get" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input type="date" name="start_date" class="sup-date-input"
+                 value="{{ start_date }}" title="From" onchange="this.form.submit()">
+          <span style="color:var(--muted);font-size:13px;">–</span>
+          <input type="date" name="end_date" class="sup-date-input"
+                 value="{{ end_date }}" title="To" onchange="this.form.submit()">
+          <button type="submit" class="sup-icon-btn" title="Filter">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"/>
+            </svg>
+          </button>
+          <a href="?start_date=&end_date=" class="sup-icon-btn" title="Clear">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </a>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle mb-0">
+          <thead>
+            <tr style="border-bottom:1px solid #f0f0e8;">
+              <th style="font-size:11px;color:var(--muted);font-weight:700;
+                          text-transform:uppercase;letter-spacing:0.05em;padding:0 0 10px;">Date</th>
+              <th style="font-size:11px;color:var(--muted);font-weight:700;
+                          text-transform:uppercase;letter-spacing:0.05em;padding:0 0 10px;">Reference</th>
+              <th style="font-size:11px;color:var(--muted);font-weight:700;
+                          text-transform:uppercase;letter-spacing:0.05em;padding:0 0 10px;">Method</th>
+              <th style="font-size:11px;color:var(--muted);font-weight:700;
+                          text-transform:uppercase;letter-spacing:0.05em;padding:0 0 10px;text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in transactions %}
+            <tr style="border-bottom:1px solid #f7f7f0;">
+              <td style="font-size:13px;color:var(--muted);padding:10px 0;">
+                {{ item.date|date:"M j, Y" }}
+              </td>
+              <td style="font-size:14px;font-weight:600;color:var(--black);padding:10px 0;">
+                {{ item.label }}
+              </td>
+              <td style="font-size:13px;color:var(--muted);padding:10px 0;">
+                {% if item.payment_method %}{{ item.payment_method }}{% else %}—{% endif %}
+              </td>
+              <td style="padding:10px 0;text-align:right;">
+                {% if item.type == "sale" %}
+                  <span style="font-size:14px;font-weight:700;color:#2E8B1F;">
+                    +₱ {{ item.amount|floatformat:2|intcomma }}
+                  </span>
+                {% else %}
+                  <span style="font-size:14px;font-weight:700;color:#FF383C;">
+                    -₱ {{ item.amount|floatformat:2|intcomma }}
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" style="text-align:center;padding:32px 0;color:var(--muted);">
+                No transactions found for this date range.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
- 
-  <nav class="bottom-button">
-    <button id="export xlsx" class="cr-full-modal-add-btn" id="fixedModalAddBtn">
-      <a href="{% url 'sales_report_export_xlsx' %}?start_date={{ start_date }}&end_date={{ end_date }}" style="text-decoration: none; color: #000">Generate Sales Report</a>
-    </button>
-  </nav>  
 </div>
+
 {% endblock %}
