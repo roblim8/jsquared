@@ -18,6 +18,14 @@
       <div class="order-card-left">
         <p class="card-title">Order #{{ o.order_id|stringformat:"03d" }}</p>
         <p class="card-sub">{{ o.created_at|date:"j M Y, H:i" }}</p>
+
+        <p class="card-sub" style="margin-top:2px;">
+          {{ o.customer_name|default:"Walk-in" }}
+        </p>
+
+        <p class="card-sub" style="margin-top:2px;">
+          Table #{{ o.table_num|default:"—" }}
+        </p>
       </div>
       <div class="order-card-right" style="display:flex; align-items:center; gap:10px;">
         <span style="display:inline-block; min-width:94px; text-align:center; padding:6px 12px; border-radius:999px; background:#bfbfbf; color:#fff; font-weight:700; font-size:12px;">CANCELLED</span>
@@ -28,6 +36,14 @@
       <div class="order-card-left">
         <p class="card-title">Order #{{ o.order_id|stringformat:"03d" }}</p>
         <p class="card-sub">{{ o.created_at|date:"j M Y, H:i" }}</p>
+
+        <p class="card-sub" style="margin-top:2px;">
+          {{ o.customer_name|default:"Walk-in" }}
+        </p>
+
+        <p class="card-sub" style="margin-top:2px;">
+          Table #{{ o.table_num|default:"—" }}
+        </p>
       </div>
       <div class="order-card-right" style="display:flex; align-items:center; gap:10px;">
         {% if o.payment_status == 'Paid' %}
