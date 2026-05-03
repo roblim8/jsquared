@@ -103,6 +103,36 @@
   text-decoration: none;
   flex-shrink: 0;
 }
+
+.sup-tx-status-form {
+  margin: 0;
+}
+
+.sup-tx-status-select {
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 22px 4px 10px;
+  border-radius: 99px;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+
+.sup-tx-status-select.sup-tx-paid {
+  background-color: #d4edda;
+  color: #2E8B1F;
+}
+
+.sup-tx-status-select.sup-tx-pending {
+  background-color: #FFF3CD;
+  color: #856404;
+}
+
 </style>
 
 <div class="detail-topbar">
@@ -234,11 +264,18 @@
       <!-- Date + status -->
       <div class="sup-tx-top">
         <span class="sup-tx-date">{{ tx.transaction_date|date:"M j, Y" }}</span>
-        <span class="sup-tx-badge {% if tx.payment_status == 'Completed' or tx.payment_status == 'Paid' %}sup-tx-paid{% else %}sup-tx-pending{% endif %}">
-          {% if tx.payment_status == 'Paid' %}Completed
-          {% elif tx.payment_status == 'Unpaid' %}Pending
-          {% else %}{{ tx.payment_status }}{% endif %}
-        </span>
+
+        <form method="POST"
+              action="{% url 'supplier_update_transaction_status' tx.transaction_id %}"
+              class="sup-tx-status-form">
+          {% csrf_token %}
+          <select name="payment_status"
+                  class="sup-tx-status-select {% if tx.payment_status == 'Paid' or tx.payment_status == 'Completed' %}sup-tx-paid{% else %}sup-tx-pending{% endif %}"
+                  onchange="this.form.submit()">
+            <option value="Pending" {% if tx.payment_status == "Pending" or tx.payment_status == "Unpaid" %}selected{% endif %}>Pending</option>
+            <option value="Paid" {% if tx.payment_status == "Paid" or tx.payment_status == "Completed" %}selected{% endif %}>Paid</option>
+          </select>
+        </form>
       </div>
 
       <!-- Item name -->

@@ -14,6 +14,40 @@
 table {
   border-spacing: 16px 0px; border-collapse: separate;
 }
+
+.receipt-breakdown-table {
+  width: 100%;
+  border-spacing: 0 6px;
+  border-collapse: separate;
+}
+
+.receipt-breakdown-table th,
+.receipt-breakdown-table td {
+  padding: 2px 0;
+  vertical-align: top;
+}
+
+.receipt-breakdown-table th:last-child,
+.receipt-breakdown-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 24px;
+}
+
+.receipt-section-divider td {
+  padding: 10px 0 6px !important;
+}
+
+.receipt-section-divider hr {
+  border: none;
+  border-top: 1px solid #e5e5df;
+  margin: 0;
+}
+
+.receipt-discount-row {
+  color: #222;
+}
+
 </style>
 
 <div class="detail-topbar no-print">
@@ -123,7 +157,7 @@ table {
           </select>
         </div>
 
-        <div>
+        <div id="total-diners-wrap">
           <label style="display:block; font-weight:600; margin-bottom:8px;">Total diners</label>
           <input type="number" min="1" name="diner_count" value="{{ order.diner_count|default:1 }}" class="form-input" style="width:100%;">
         </div>
@@ -197,12 +231,11 @@ table {
     </div>
     {% endif %}
 
-    <table>
-      <hr>
+    <table class="receipt-breakdown-table">
       <thead>
         <tr>
           <th>Category</th>
-          <th style="margin-left: 1rem;">Amount</th>
+          <th>Amount</th>
         </tr>
       </thead>
       <tbody>
@@ -220,43 +253,52 @@ table {
         </tr>
         <tr>
           <th>Gross total</th>
-          <td>₱ {{ discount_breakdown.gross_total|floatformat:2|intcomma }}</td>
+          <td><strong>₱ {{ discount_breakdown.gross_total|floatformat:2|intcomma }}</strong></td>
         </tr>
-        <tr>
-          <td>Discountable base</td>
-          <td>₱ {{ discount_breakdown.discountable_base|floatformat:2|intcomma }}</td>
+
+        <tr class="receipt-section-divider">
+          <td colspan="2"><hr></td>
         </tr>
-        <tr>
-          <td>Eligible amount</td>
-          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
-        </tr>
-        <tr>
-          <td>Fixed items</td>
-          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2|intcomma }}</td>
-        </tr>
-        {% if order.discount and order.discount.discount_type != "Suki" %}
+
         <tr>
           <td>VATable sales</td>
-          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2|intcomma }}</td>
+          <td id="receipt-vatable-sales">₱ 0.00</td>
         </tr>
         <tr>
-          <td>VAT exempt</td>
-          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
+          <td>VAT (12%)</td>
+          <td id="receipt-vat-amount">₱ 0.00</td>
         </tr>
-        <tr>
-          <td>20% portion</td>
-          <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
+
+        {% if order.discount %}
+        <tr class="receipt-section-divider">
+          <td colspan="2"><hr></td>
         </tr>
-        {% elif order.discount and order.discount.discount_type == "Suki" %}
-        <tr>
-          <td>Suki rate</td>
-          <td>{{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</td>
-        </tr>
+
+          {% if order.discount.discount_type == "Suki" %}
+          <tr class="receipt-discount-row">
+            <td>Suki rate</td>
+            <td>{{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</td>
+          </tr>
+          {% else %}
+          <tr class="receipt-discount-row">
+            <td>Discountable base</td>
+            <td>₱ {{ discount_breakdown.discountable_base|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr class="receipt-discount-row">
+            <td>Eligible amount</td>
+            <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
+          </tr>
+          <tr class="receipt-discount-row">
+            <td>20% portion</td>
+            <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
+          </tr>
+          {% endif %}
+
+          <tr>
+            <th>Total discount</th>
+            <td><strong>₱ {{ discount_breakdown.discount_total|floatformat:2|intcomma }}</strong></td>
+          </tr>
         {% endif %}
-        <tr>
-          <td>Total discount</td>
-          <td>₱ {{ discount_breakdown.discount_total|floatformat:2|intcomma }}</td>
-        </tr>
       </tbody>
     </table>
 
@@ -275,6 +317,7 @@ table {
   const toggleBtn = document.getElementById('toggle-discount-btn');
   const panel = document.getElementById('discount-panel');
   const discountSelect = document.getElementById('discount-id');
+  const totalDinersWrap = document.getElementById('total-diners-wrap');
   const pwdWrap = document.getElementById('pwd-count-wrap');
   const seniorWrap = document.getElementById('senior-count-wrap');
   const sukiWrap = document.getElementById('suki-percent-wrap');
@@ -301,6 +344,7 @@ table {
     const isSuki = selectedText.includes("suki");
     const hasDiscount = discountSelect.value !== "";
 
+    if (totalDinersWrap) totalDinersWrap.style.display = (!isSuki && hasDiscount) ? "block" : "none";
     if (pwdWrap) pwdWrap.style.display = (!isSuki && hasDiscount) ? "block" : "none";
     if (seniorWrap) seniorWrap.style.display = (!isSuki && hasDiscount) ? "block" : "none";
     if (sukiWrap) sukiWrap.style.display = (isSuki && hasDiscount) ? "block" : "none";
@@ -316,6 +360,34 @@ table {
     discountSelect.addEventListener('change', updateDiscountFields);
     updateDiscountFields();
   }
+
+  function parsePeso(raw) {
+    return Number(String(raw || "0").replace(/[₱,\s]/g, "")) || 0;
+  }
+
+  function formatPeso(amount) {
+    return "₱ " + amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function updateReceiptVatBreakdown() {
+    const vatableEl = document.getElementById("receipt-vatable-sales");
+    const vatEl = document.getElementById("receipt-vat-amount");
+
+    if (!vatableEl || !vatEl) return;
+
+    const discountableBase = parsePeso("{{ discount_breakdown.discountable_base|floatformat:2 }}");
+    const vatableSales = discountableBase / 1.12;
+    const vatAmount = discountableBase - vatableSales;
+
+    vatableEl.textContent = formatPeso(vatableSales);
+    vatEl.textContent = formatPeso(vatAmount);
+  }
+
+  updateReceiptVatBreakdown();
+
 })();
 </script>
 

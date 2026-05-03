@@ -98,6 +98,126 @@
 .od-item-preparing[data-item-type="varied"] .od-supplier-pill:disabled {
   opacity: 0.6;
 }
+
+  /* FINAL alignment fix for order detail rows */
+  .od-col-preparing,
+  .od-item-preparing[data-item-type="varied"] {
+    display: grid !important;
+    grid-template-columns: 26px minmax(98px, 1fr) 68px 78px !important;
+    align-items: center !important;
+    column-gap: 6px !important;
+  }
+
+  .od-col-preparing {
+    padding: 0 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .od-col-preparing span {
+    font-size: 10.5px !important;
+    color: var(--muted) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .od-col-preparing span:nth-child(1),
+  .od-item-preparing[data-item-type="varied"] .od-check {
+    justify-self: center !important;
+  }
+
+  .od-col-preparing span:nth-child(2),
+  .od-item-preparing[data-item-type="varied"] .od-item-info {
+    justify-self: stretch !important;
+  }
+
+  .od-col-preparing span:nth-child(3),
+  .od-item-preparing[data-item-type="varied"] .od-supplier-pill {
+    justify-self: center !important;
+    text-align: center !important;
+  }
+
+  .od-col-preparing span:nth-child(4),
+  .od-item-preparing[data-item-type="varied"] .od-item-price {
+    justify-self: end !important;
+    text-align: right !important;
+  }
+
+  .od-item-preparing[data-item-type="varied"] .od-supplier-pill {
+    width: 66px !important;
+    min-width: 66px !important;
+    max-width: 66px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .od-item-preparing[data-item-type="varied"] .od-item-price {
+    width: 78px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  .od-item-info {
+    min-width: 0 !important;
+  }
+
+  .od-item-name,
+  .od-item-sub {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-left: 0 !important;
+  }
+
+  #fixedItems .od-item-preparing,
+  #fixedItems + .od-item-preparing {
+    display: grid !important;
+    grid-template-columns: 26px minmax(0, 1fr) 78px !important;
+    align-items: center !important;
+    column-gap: 6px !important;
+  }
+
+  #fixedItems .od-item-price {
+    justify-self: end !important;
+    text-align: right !important;
+    width: 78px !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  #fixedItems .od-item-name,
+  #fixedItems .od-item-sub {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .od-check {
+    justify-self: center !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 0 !important;
+  }
+
+  .od-total-row,
+  .od-subtotal-row {
+    align-items: center;
+  }
+
+  .od-actions .od-btn-cancel,
+  .od-actions .od-btn-accept-match,
+  .od-actions .od-btn-complete {
+    width: 100% !important;
+    height: 64px !important;
+  }
+
 </style>
 
 <!-- Back -->
@@ -186,8 +306,8 @@
       <div class="od-item od-item-pending"
            data-item-id="{{ it.order_item_id }}"
            data-is-varied="{% if it.varied_item %}1{% else %}0{% endif %}"
-           data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0|intcomma }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
-           data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0|intcomma }}{% else %}0{% endif %}">
+           data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0 }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
+           data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0 }}{% else %}0{% endif %}">
 
         <button type="button" class="od-remove-btn"
                 data-delete-url="{% url 'order_item_delete' order.order_id it.order_item_id %}"
@@ -266,12 +386,12 @@
 
 </div>
 
-<nav class="bottom-button" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+<nav class="bottom-button od-actions" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
   <button type="button" class="od-btn-cancel" style="flex:1;" onclick="openDeleteOrderModal()">Delete order</button>
   <form method="post" action="{% url 'order_accept' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
     <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()"
-            style="width:100%;border:none;font-weight:bold;">Accept order</button>
+            style="width:100%;height:64px;border:none;font-weight:bold;">Accept order</button>
   </form>
 </nav>
 
@@ -325,13 +445,13 @@
   <div class="od-col-headers od-col-preparing">
     <span></span>
     <span>Item &amp; Amount</span>
-    <span>Total Price</span>
     <span>Supplier</span>
+    <span>Total Price</span>
   </div>
   <div class="od-items" id="orderItems">
     {% for it in order.items.all %}{% if it.varied_item %}
     <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0"
-         data-subtotal="{{ it.subtotal|floatformat:2|intcomma  }}" data-item-type="varied">
+         data-subtotal="{{ it.subtotal|floatformat:2 }}" data-item-type="varied">
       <button class="od-check" onclick="toggleCheck(this)" type="button">
         <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"/>
@@ -346,7 +466,6 @@
         <p class="od-item-name">{{ it.order_quantity }}kg {{ it.varied_item.meat.meat_type }}</p>
         <p class="od-item-sub">{{ it.varied_item.cooking_style.style_name }}</p>
       </div>
-      <p class="od-item-price">₱ {{ it.subtotal|floatformat:1|intcomma }}</p>
       <button class="od-supplier-pill"
         data-url="{% url 'supplier_list' %}"
         data-item-id="{{ it.order_item_id }}"
@@ -368,14 +487,15 @@
         {% elif it.supplier %}{{ it.supplier.supplier_name }}
         {% else %}Select{% endif %}
       </button>
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:2|intcomma }}</p>
     </div>
     {% endif %}{% endfor %}
   </div>
 
   <!-- ── Fixed items ── -->
-  <p class="section-label" style="margin:1rem 0 0.5rem;">Other Items</p>
+  <p class="section-label" style="margin:1rem 0 0.5rem;">Fixed Items</p>
   <div class="od-col-headers" 
-      style="display:grid;grid-template-columns:32px 1.6fr 1fr;gap:8px;padding:0 4px;margin-bottom:4px;">
+      style="display:grid;grid-template-columns:26px minmax(0, 1fr) 78px;gap:6px;padding:0 4px;margin-bottom:4px;align-items:center;">
     <span></span>
     <span style="font-size:11px;color:var(--muted);">Item &amp; Amount</span>
     <span style="font-size:11px;color:var(--muted);text-align:right;">Total Price</span>
@@ -383,7 +503,11 @@
   <div class="od-items" id="fixedItems">
     {% for it in order.items.all %}{% if it.fixed_item %}
     <div class="od-item od-item-preparing"
-     style="display:grid;grid-template-columns:32px 1.6fr 1fr;align-items:center;gap:8px;">
+     data-item-id="{{ it.order_item_id }}"
+     data-checked="0"
+     data-subtotal="{{ it.subtotal|floatformat:2 }}"
+     data-item-type="fixed"
+     style="display:grid;grid-template-columns:26px minmax(0, 1fr) 78px;align-items:center;gap:6px;">
   
     <button class="od-check" onclick="toggleCheck(this)" type="button"> <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"> <circle cx="12" cy="12" r="10"/> </svg> <svg class="od-check-filled" viewBox="0 0 24 24" style="display:none;"> <circle cx="12" cy="12" r="10" fill="#2E8B1F"/> <polyline points="8,12 11,15 16,9" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/> </svg> </button>
 
@@ -395,7 +519,7 @@
     </div>
 
     <p class="od-item-price" style="text-align:right;">
-      ₱ {{ it.subtotal|floatformat:1|intcomma }}
+      ₱ {{ it.subtotal|floatformat:2|intcomma }}
     </p>
   </div>
     {% endif %}{% endfor %}
@@ -407,11 +531,11 @@
   <!-- Subtotals -->
   <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:4px;">
     <span style="font-size:13px;color:var(--muted);">Meats subtotal</span>
-    <span style="font-size:13px;color:var(--muted);" id="variedSubtotal">₱ —</span>
+    <span style="font-size:13px;color:var(--muted);" id="variedSubtotal">₱ {{ meats_subtotal|floatformat:2|intcomma }}</span>
   </div>
   <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:10px;">
-    <span style="font-size:13px;color:var(--muted);">Other items subtotal</span>
-    <span style="font-size:13px;color:var(--muted);" id="fixedSubtotal">₱ —</span>
+    <span style="font-size:13px;color:var(--muted);">Fixed items subtotal</span>
+    <span style="font-size:13px;color:var(--muted);" id="fixedSubtotal">₱ {{ other_items_subtotal|floatformat:2|intcomma }}</span>
   </div>
 
   <div class="od-total-row">
@@ -421,13 +545,13 @@
 
 </div>
 
-<nav class="bottom-button" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+<nav class="bottom-button od-actions" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
   <button type="button" class="od-btn-cancel" style="flex:1;"
           onclick="openCancelOrderModal()">Cancel order</button>
   <form method="post" action="{% url 'order_serve' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
     <button class="od-btn-complete" id="completeBtn" disabled type="submit"
-            style="width:100%;">Complete order</button>
+            style="width:100%;height:64px;">Complete order</button>
   </form>
 </nav>
 
@@ -673,8 +797,8 @@ function updateCompleteBtn() {
   });
   const variedEl = document.getElementById('variedSubtotal');
   const fixedEl  = document.getElementById('fixedSubtotal');
-  if (variedEl) variedEl.textContent = '₱ ' + Math.round(variedTotal).toLocaleString();
-  if (fixedEl)  fixedEl.textContent  = '₱ ' + Math.round(fixedTotal).toLocaleString();
+  if (variedEl) variedEl.textContent = '₱ ' + variedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  if (fixedEl)  fixedEl.textContent  = '₱ ' + fixedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
   if (!btn || !items.length) return;
   const allChecked = [...items].every(i => i.dataset.checked === '1');
@@ -725,8 +849,8 @@ function acceptOrder() {
 })();
 
 function formatPeso(value) {
-  const rounded = Math.round(Number(value) || 0);
-  return "₱ " + rounded;
+  const amount = Number(value) || 0;
+  return "₱ " + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 function recalculatePendingTotal() {

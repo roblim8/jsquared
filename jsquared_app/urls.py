@@ -30,6 +30,12 @@ urlpatterns = [
     path("admin-console/suppliers/<int:supplier_id>/transactions/new/", views.supplier_transaction_create, name="supplier_transaction_create"),
     path("admin-console/suppliers/<int:supplier_id>/transactions/<int:transaction_id>/edit/", views.supplier_transaction_update, name="supplier_transaction_update"),
     path("admin-console/suppliers/<int:supplier_id>/transactions/<int:transaction_id>/delete/", views.supplier_transaction_delete, name="supplier_transaction_delete"),
+    path( "admin-console/supplier/mark-paid/<int:transaction_id>/", views.supplier_mark_paid,name="supplier_mark_paid"),
+    path(
+    "admin-console/supplier-transactions/<int:transaction_id>/status/",
+    views.supplier_update_transaction_status,
+    name="supplier_update_transaction_status",
+),
 
     # Discount management
     path("admin-console/discounts/", views.discount_list, name="discount_list"),

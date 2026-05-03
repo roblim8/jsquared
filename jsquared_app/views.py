@@ -252,15 +252,20 @@ def require_roles(*roles: str):
 
 
 def _ensure_default_discounts():
+    """
+    Ensure the default discount records exist.
+
+    IMPORTANT:
+    Do not force Suki back to 0 here. Managers can edit the Suki
+    default value from the admin console, so this function should only
+    create the record when it is missing.
+    """
     defaults = [("PWD", 20.0), ("Senior Citizen", 20.0), ("Suki", 0.0)]
     for discount_type, discount_value in defaults:
-        discount, created = Discount.objects.get_or_create(
+        Discount.objects.get_or_create(
             discount_type=discount_type,
             defaults={"discount_value": discount_value},
         )
-        if discount_type == "Suki" and float(discount.discount_value or 0) != 0:
-            discount.discount_value = 0.0
-            discount.save(update_fields=["discount_value"])
 
 
 def _validate_varied_item_weight(varied_item, qty, errors):
@@ -539,14 +544,21 @@ def sales_report(request):
     end_date = (request.GET.get("end_date") or "").strip()
 
     orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
-    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+
+    # Supplier expenses should only appear in the sales report once actually paid.
+    # The report date for supplier expenses is the date/time marked paid (paid_at),
+    # not the original supplier transaction date.
+    supplier_qs = SupplierTransaction.objects.filter(
+        payment_status__in=["Paid", "Completed"],
+        paid_at__isnull=False,
+    ).order_by("-paid_at", "-transaction_id")
 
     if start_date:
         orders_qs = orders_qs.filter(created_at__date__gte=start_date)
-        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__gte=start_date)
     if end_date:
         orders_qs = orders_qs.filter(created_at__date__lte=end_date)
-        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__lte=end_date)
 
     orders = list(orders_qs)
     supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
@@ -564,21 +576,21 @@ def sales_report(request):
             "description": order.customer_name or "Customer order",
             "date": timezone.localtime(order.created_at),
             "amount": float(order.total_amount or 0),
-            "payment_method": order.payment_method or "—", 
+            "payment_method": order.payment_method or "—",
         })
 
     for tx in supplier_transactions:
         item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
         supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
-        tx_date = tx.transaction_date or timezone.localdate()
+        paid_date = timezone.localtime(tx.paid_at) if tx.paid_at else timezone.now()
 
         transactions.append({
             "type": "expense",
             "label": f"Supplier Transaction #{tx.transaction_id}",
             "description": f"{supplier_name} - {item_label}",
-            "date": timezone.make_aware(datetime.combine(tx.transaction_date, datetime.min.time())),
+            "date": paid_date,
             "amount": float(tx.transaction_amount or 0),
-            "payment_method": tx.payment_status or "—",  # ← shows Paid/Unpaid/etc for supplier rows
+            "payment_method": tx.payment_status or "—",
         })
 
     transactions = sorted(transactions, key=lambda x: x["date"], reverse=True)
@@ -586,7 +598,7 @@ def sales_report(request):
     payment_breakdown = defaultdict(float)
 
     for order in orders:
-        method = order.payment_method or 'Cash'
+        method = order.payment_method or "Cash"
         payment_breakdown[method] += float(order.total_amount or 0)
 
     payment_breakdown = sorted(payment_breakdown.items(), key=lambda x: x[0])
@@ -603,21 +615,23 @@ def sales_report(request):
         "payment_breakdown": payment_breakdown,
     })
 
-
 @admin_login_required
 def sales_report_export_csv(request):
     start_date = (request.GET.get("start_date") or "").strip()
     end_date = (request.GET.get("end_date") or "").strip()
 
     orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
-    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+    supplier_qs = SupplierTransaction.objects.filter(
+        payment_status__in=["Paid", "Completed"],
+        paid_at__isnull=False,
+    ).order_by("-paid_at", "-transaction_id")
 
     if start_date:
         orders_qs = orders_qs.filter(created_at__date__gte=start_date)
-        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__gte=start_date)
     if end_date:
         orders_qs = orders_qs.filter(created_at__date__lte=end_date)
-        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__lte=end_date)
 
     orders = list(orders_qs)
     supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
@@ -645,8 +659,10 @@ def sales_report_export_csv(request):
     for tx in supplier_transactions:
         item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
         supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
+        paid_date = timezone.localtime(tx.paid_at) if tx.paid_at else timezone.now()
+
         writer.writerow([
-            (tx.transaction_date or timezone.localdate()).strftime("%m/%d/%Y"),
+            paid_date.strftime("%m/%d/%Y"),
             "Expense",
             f"Supplier Transaction #{tx.transaction_id}",
             f"{supplier_name} - {item_label}",
@@ -659,21 +675,23 @@ def sales_report_export_csv(request):
     writer.writerow(["NET CASH FLOW", "", "", "", net_cash_flow])
     return response
 
-
 @admin_login_required
 def sales_report_export_xlsx(request):
     start_date = (request.GET.get("start_date") or "").strip()
     end_date = (request.GET.get("end_date") or "").strip()
 
     orders_qs = Order.objects.filter(order_status__in=["Completed", "Served"]).order_by("-created_at")
-    supplier_qs = SupplierTransaction.objects.exclude(payment_status="Cancelled").order_by("-transaction_date", "-transaction_id")
+    supplier_qs = SupplierTransaction.objects.filter(
+        payment_status__in=["Paid", "Completed"],
+        paid_at__isnull=False,
+    ).order_by("-paid_at", "-transaction_id")
 
     if start_date:
         orders_qs = orders_qs.filter(created_at__date__gte=start_date)
-        supplier_qs = supplier_qs.filter(transaction_date__gte=start_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__gte=start_date)
     if end_date:
         orders_qs = orders_qs.filter(created_at__date__lte=end_date)
-        supplier_qs = supplier_qs.filter(transaction_date__lte=end_date)
+        supplier_qs = supplier_qs.filter(paid_at__date__lte=end_date)
 
     orders = list(orders_qs)
     supplier_transactions = list(supplier_qs.select_related("supplier", "meat"))
@@ -699,8 +717,10 @@ def sales_report_export_xlsx(request):
     for tx in supplier_transactions:
         item_label = tx.item_name or (tx.meat.meat_type if tx.meat_id else "Purchased item")
         supplier_name = tx.supplier.supplier_name if tx.supplier_id else "Supplier"
+        paid_date = timezone.localtime(tx.paid_at) if tx.paid_at else timezone.now()
+
         ws.append([
-            (tx.transaction_date or timezone.localdate()).strftime("%m/%d/%Y"),
+            paid_date.strftime("%m/%d/%Y"),
             "Expense",
             f"Supplier Transaction #{tx.transaction_id}",
             f"{supplier_name} - {item_label}",
@@ -721,7 +741,6 @@ def sales_report_export_xlsx(request):
     )
     response["Content-Disposition"] = 'attachment; filename="sales_report.xlsx"'
     return response
-
 
 @admin_login_required
 def sales_report_print(request):
@@ -1187,7 +1206,12 @@ def order_detail(request, order_id: int):
             return redirect("order_detail", order_id=order.order_id)
 
     order.recompute_total()
-    return render(request, "jsquared_app/order_detail.html", {"order": order, "menu_items": menu_items})
+    display_totals = _order_display_totals(order)
+    return render(request, "jsquared_app/order_detail.html", {
+        "order": order,
+        "menu_items": menu_items,
+        **display_totals,
+    })
 
 @staff_login_required
 @require_roles("Staff", "Cashier", "Manager")
@@ -1301,10 +1325,12 @@ def order_update_discount(request, order_id: int):
 
             if discount.discount_type == "Suki":
                 raw_suki = (request.POST.get("suki_discount_percent") or "").strip()
+                default_suki = float(discount.discount_value or 0)
+
                 try:
-                    order.suki_discount_percent = float(raw_suki) if raw_suki else None
+                    order.suki_discount_percent = float(raw_suki) if raw_suki else default_suki
                 except ValueError:
-                    order.suki_discount_percent = None
+                    order.suki_discount_percent = default_suki
 
         order.save(
             update_fields=[
@@ -1792,8 +1818,10 @@ def _apply_supplier_expenses_to_orders(orders):
         expense_query = _supplier_expense_q_for_orders([order.order_id])
         supplier_expense = 0
         if expense_query:
-            supplier_expense = SupplierTransaction.objects.filter(expense_query).exclude(
-                payment_status="Cancelled"
+            supplier_expense = SupplierTransaction.objects.filter(
+                expense_query,
+                payment_status__in=["Paid", "Completed"],
+                paid_at__isnull=False,
             ).aggregate(total=Sum("transaction_amount"))["total"] or 0
         order.supplier_expense = float(supplier_expense or 0)
         order.net_sales = float(order.total_amount or 0) - order.supplier_expense
@@ -1809,8 +1837,10 @@ def _report_totals_for_orders(orders):
     total_expenses = 0
     if order_ids:
         expense_query = _supplier_expense_q_for_orders(order_ids)
-        total_expenses = SupplierTransaction.objects.filter(expense_query).exclude(
-            payment_status="Cancelled"
+        total_expenses = SupplierTransaction.objects.filter(
+            expense_query,
+            payment_status__in=["Paid", "Completed"],
+            paid_at__isnull=False,
         ).aggregate(total=Sum("transaction_amount"))["total"] or 0
 
     total_expenses = float(total_expenses or 0)
@@ -1823,6 +1853,33 @@ def _order_item_is_byom(order_item):
 
 def _order_item_requires_supplier(order_item):
     return bool(order_item and order_item.varied_item_id and not _order_item_is_byom(order_item))
+
+
+
+def _order_display_totals(order):
+    """
+    Display breakdown for VAT-inclusive pricing.
+
+    Raw meat is treated as non-VATable.
+    Cooking charges and fixed menu items are treated as VAT-inclusive/VATable.
+    """
+    meat_subtotal = float(order.meat_base_total() or 0) + float(order.cooking_charge_total() or 0)
+    other_items_subtotal = float(order.fixed_items_total() or 0)
+    cooking_total = float(order.cooking_charge_total() or 0)
+    fixed_total = float(order.fixed_items_total() or 0)
+    vatable_total = cooking_total + fixed_total
+    vat_amount = vatable_total - (vatable_total / 1.12) if vatable_total else 0.0
+    gross_total = float(order.gross_amount() or 0)
+    net_subtotal = gross_total - vat_amount
+
+    return {
+        "meats_subtotal": round(meat_subtotal, 2),
+        "other_items_subtotal": round(other_items_subtotal, 2),
+        "vatable_total": round(vatable_total, 2),
+        "vat_amount": round(vat_amount, 2),
+        "net_subtotal": round(net_subtotal, 2),
+        "gross_total": round(gross_total, 2),
+    }
 
 
 def _order_has_missing_required_suppliers(order):
@@ -2307,3 +2364,49 @@ def backup_download(request):
     response = HttpResponse(data, content_type='application/json')
     response['Content-Disposition'] = 'attachment; filename="jsquared_backup.json"'
     return response
+
+@admin_login_required
+@require_POST
+def supplier_mark_paid(request, transaction_id):
+    tx = get_object_or_404(SupplierTransaction, transaction_id=transaction_id)
+
+    if tx.payment_status == "Paid":
+        messages.info(request, "Already marked as paid.")
+        return redirect("supplier_detail", supplier_id=tx.supplier.supplier_id)
+
+    tx.payment_status = "Paid"
+    tx.save(update_fields=["payment_status"])
+
+    messages.success(request, "Transaction marked as paid.")
+    return redirect("supplier_detail", supplier_id=tx.supplier.supplier_id)
+
+@admin_login_required
+@require_POST
+def supplier_update_transaction_status(request, transaction_id):
+    tx = get_object_or_404(SupplierTransaction, transaction_id=transaction_id)
+
+    new_status = (request.POST.get("payment_status") or "").strip()
+
+    if new_status not in {"Pending", "Unpaid", "Paid", "Completed"}:
+        messages.error(request, "Invalid supplier payment status.")
+        return redirect("supplier_detail", supplier_id=tx.supplier_id)
+
+    if new_status in {"Paid", "Completed"}:
+        tx.payment_status = "Paid"
+        tx.paid_at = timezone.now()
+    else:
+        tx.payment_status = "Pending"
+        tx.paid_at = None
+
+    tx.save(update_fields=["payment_status", "paid_at"])
+
+    log_action(
+        request,
+        f"Updated supplier transaction #{tx.transaction_id} payment status to {tx.payment_status}",
+        "SupplierTransaction",
+        f"Transaction #{tx.transaction_id}",
+        action="UPDATE",
+    )
+
+    messages.success(request, "Supplier transaction status updated.")
+    return redirect("supplier_detail", supplier_id=tx.supplier_id)

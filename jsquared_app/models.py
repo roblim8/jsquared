@@ -197,6 +197,7 @@ class SupplierTransaction(models.Model):
         choices=PAYMENT_CHOICES,
     )
     notes = models.TextField(blank=True, null=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "SUPPLIER_TRANSACTION"
