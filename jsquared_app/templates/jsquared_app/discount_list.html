@@ -3,67 +3,75 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<div class="detail-topbar">
-  <a href="{% url 'admin_console' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable { max-width:100%!important; width:100%!important; }
+.page-scrollable > div.container { margin-left:220px; }
+</style>
 
-<div class="page-header">
-  <h1 class="page-title">Discounts</h1>
-</div>
+{% include "jsquared_app/admin_navigation.html" with active="discounts" %}
 
-<div style="padding: 0 1.25rem; display:flex; flex-direction:column; gap:10px; padding-bottom:2rem; margin-top:0.5rem;">
-  {% for discount in discounts %}
-  <div style="background:#fff; border-radius:14px; padding:14px 16px;
-              box-shadow:0 1px 4px rgba(0,0,0,0.06);
-              display:flex; align-items:center; gap:12px;">
+<div class="adm-main">
 
-    <!-- Discount icon -->
-    <div style="width:44px;height:44px;border-radius:10px;background:#D6EAF8;
-                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-           stroke="#2980b9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-        <line x1="7" y1="7" x2="7.01" y2="7"/>
-      </svg>
+  <div class="adm-topbar">
+    <div class="adm-topbar-greeting">
+      <h2>Discount Types</h2>
+      <p>Manage customer discount rates</p>
     </div>
+  </div>
 
-    <!-- Info -->
-    <div style="flex:1;min-width:0;">
-      <p style="font-size:15px;font-weight:700;color:var(--black);margin:0 0 2px;">
-        {{ discount.discount_type }}
-      </p>
-      <p style="font-size:13px;color:var(--muted);margin:0;">
-        {{ discount.discount_value }}% off
-      </p>
+  <div class="adm-content">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-8 col-lg-6">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          {% for discount in discounts %}
+          <div style="background:#fff;border-radius:16px;padding:18px 20px;
+                      box-shadow:0 1px 4px rgba(0,0,0,0.06);
+                      display:flex;align-items:center;gap:14px;">
+
+            <div style="width:48px;height:48px;border-radius:12px;background:#D6EAF8;
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                   stroke="#2980b9" stroke-width="1.8" stroke-linecap="round">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+            </div>
+
+            <div style="flex:1;min-width:0;">
+              <p style="font-size:15px;font-weight:700;color:var(--black);margin:0 0 2px;">
+                {{ discount.discount_type }}
+              </p>
+              <p style="font-size:13px;color:var(--muted);margin:0;">
+                {{ discount.discount_value }}% off
+              </p>
+            </div>
+
+            {% if discount.discount_type == 'Suki' %}
+            <a href="{% url 'discount_edit' discount.discount_id %}"
+               style="background:#f0f0e8;border-radius:10px;padding:9px 18px;
+                      font-size:13px;font-weight:600;color:var(--black);
+                      text-decoration:none;flex-shrink:0;">
+              Edit
+            </a>
+            {% endif %}
+
+          </div>
+          {% empty %}
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            <p>No discounts yet.</p>
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
     </div>
-
-    {% if discount.discount_type == 'Suki' %}
-    <a href="{% url 'discount_edit' discount.discount_id %}"
-      style="background:#f0f0e8;border-radius:10px;padding:8px 16px;
-              font-size:13px;font-weight:600;color:var(--black);
-              text-decoration:none;flex-shrink:0;">
-      Edit
-    </a>
-    {% endif %}
-
   </div>
-  {% empty %}
-  <div class="empty-state">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-         stroke="#ccc" stroke-width="1.2">
-      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-      <line x1="7" y1="7" x2="7.01" y2="7"/>
-    </svg>
-    <p>No discounts yet.</p>
-  </div>
-  {% endfor %}
 </div>
 
 {% endblock %}

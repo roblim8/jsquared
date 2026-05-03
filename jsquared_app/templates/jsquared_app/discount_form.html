@@ -3,66 +3,81 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<div class="detail-topbar">
-  <a href="{% url 'discount_list' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable { max-width:100%!important; width:100%!important; }
+.page-scrollable > div.container { margin-left:220px; }
+</style>
 
-<div class="page-header">
-  <h1 class="page-title">{% if mode == 'create' %}Add Discount{% else %}Edit Discount{% endif %}</h1>
-</div>
+{% include "jsquared_app/admin_navigation.html" with active="discounts" %}
 
-<form method="post" style="padding: 0 1.25rem;">
-  {% csrf_token %}
+<div class="adm-main">
 
-  <div class="sup-form-card">
-
-    <!-- Discount Type -->
-    <label class="sup-form-label">
-      Discount type <span class="sup-required">*</span>
-    </label>
-    <div class="login-input-wrapper" style="margin-bottom:16px;">
-      <select name="discount_type" class="login-input" style="appearance:auto;cursor:pointer;">
-        <option value="PWD"
-          {% if discount.discount_type == 'PWD' %}selected{% endif %}>
-          PWD
-        </option>
-        <option value="Senior Citizen"
-          {% if discount.discount_type == 'Senior Citizen' %}selected{% endif %}>
-          Senior Citizen
-        </option>
-        <option value="Suki"
-          {% if discount.discount_type == 'Suki' %}selected{% endif %}>
-          Suki
-        </option>
-      </select>
+  <div class="adm-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="{% url 'discount_list' %}"
+         style="background:#f0f0e8;border-radius:10px;padding:8px 14px;
+                display:inline-flex;align-items:center;gap:6px;
+                text-decoration:none;font-size:13px;font-weight:600;color:var(--black);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12,19 5,12 12,5"/>
+        </svg>
+        Back
+      </a>
+      <h2 style="font-size:18px;font-weight:800;color:var(--black);margin:0;">
+        {% if mode == 'create' %}Add Discount{% else %}Edit Discount{% endif %}
+      </h2>
     </div>
-
-    <!-- Discount Value -->
-    <label class="sup-form-label">
-      Discount value (%) <span class="sup-required">*</span>
-    </label>
-    <div class="login-input-wrapper">
-      <input type="number" name="discount_value" class="login-input"
-             step="0.01" min="0" max="100"
-             placeholder="e.g. 20"
-             value="{{ discount.discount_value|default:'' }}" required>
-      <span style="font-size:14px;font-weight:600;color:var(--muted);flex-shrink:0;">%</span>
-    </div>
-
   </div>
 
-  <nav class="bottom-button">
-    <button type="submit" class="create-submit-btn create-submit-btn-active" style="width:100%;">
-      {% if mode == 'create' %}Add Discount{% else %}Save Changes{% endif %}
-    </button>
-  </nav>
-</form>
+  <div class="adm-content">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-6 col-lg-4">
+
+        <div style="background:#fff;border-radius:16px;padding:24px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <form method="post">
+            {% csrf_token %}
+
+            <label class="adm-field-label">
+              Discount type <span style="color:#FF383C;">*</span>
+            </label>
+            <div class="login-input-wrapper" style="margin-bottom:16px;">
+              <select name="discount_type" class="login-input"
+                      style="appearance:auto;cursor:pointer;">
+                <option value="PWD"
+                  {% if discount.discount_type == 'PWD' %}selected{% endif %}>PWD</option>
+                <option value="Senior Citizen"
+                  {% if discount.discount_type == 'Senior Citizen' %}selected{% endif %}>Senior Citizen</option>
+                <option value="Suki"
+                  {% if discount.discount_type == 'Suki' %}selected{% endif %}>Suki</option>
+              </select>
+            </div>
+
+            <label class="adm-field-label">
+              Discount value (%) <span style="color:#FF383C;">*</span>
+            </label>
+            <div class="login-input-wrapper" style="margin-bottom:24px;">
+              <input type="number" name="discount_value" class="login-input"
+                     step="0.01" min="0" max="100" placeholder="e.g. 20"
+                     value="{{ discount.discount_value|default:'' }}" required>
+              <span style="font-size:14px;font-weight:600;color:var(--muted);flex-shrink:0;">%</span>
+            </div>
+
+            <button type="submit"
+                    class="create-submit-btn create-submit-btn-active"
+                    style="width:100%;">
+              {% if mode == 'create' %}Add Discount{% else %}Save Changes{% endif %}
+            </button>
+
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
