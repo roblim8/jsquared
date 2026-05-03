@@ -1,29 +1,398 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<!-- Back -->
-<div class="detail-topbar">
-  <a href="{% url 'login' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+/* ── Override base.html mobile constraint for desktop admin ── */
+body {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding-bottom: 0 !important;
+}
 
-<div class="page-header"><h1 class="page-title">Admin Console</h1></div>
+.page-scrollable {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+/* ── Admin Desktop Layout ── */
+.adm-desktop {
+  display: flex;
+  min-height: 100vh;
+  max-width: 100%;
+  background: #f5f5ee;
+}
 
-<div class="container" style="margin-top:1rem;">
-  <div class="d-grid gap-3">
-    <a href="{% url 'account_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Registered Accounts</a>
-    <a href="{% url 'sales_report' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Sales Report</a>
-    <a href="{% url 'supplier_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Suppliers</a>
-    <a href="{% url 'discount_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Discount Types</a>
-    <a href="{% url 'audit_log_list' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Audit Logs</a>
-    <a href="{% url 'backup_restore' %}" class="login-btn" style="width:100%;display:block;text-align:center;">Backup / Restore</a>
+/* Sidebar */
+.adm-sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: var(--accent);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+}
+
+.adm-sidebar-logo {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+
+.adm-sidebar-logo img { height: 52px; width: auto; }
+
+.adm-sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 20px 20px 8px;
+  margin: 0;
+}
+
+.adm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 20px;
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+
+.adm-nav-link:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.adm-nav-link.active { background: var(--primary); color: var(--black); }
+.adm-nav-link svg { flex-shrink: 0; opacity: 0.85; }
+.adm-nav-link.active svg { opacity: 1; }
+
+.adm-sidebar-bottom {
+  margin-top: auto;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+}
+
+.adm-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.adm-logout-btn:hover { color: #fff; }
+
+/* Main content */
+.adm-main { margin-left: 220px; flex: 1; min-height: 100vh; }
+
+.adm-topbar {
+  background: #fff;
+  border-bottom: 1px solid #e8e8e0;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.adm-topbar-greeting h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--black);
+  margin: 0 0 2px;
+}
+
+.adm-topbar-greeting p { font-size: 13px; color: var(--muted); margin: 0; }
+
+.adm-topbar-user { display: flex; align-items: center; gap: 10px; }
+
+.adm-user-name { text-align: right; }
+.adm-user-name p:first-child { font-size: 14px; font-weight: 700; color: var(--black); margin: 0; }
+.adm-user-name p:last-child  { font-size: 12px; color: var(--muted); margin: 0; }
+
+.adm-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f0f0e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Content */
+.adm-content { padding: 32px; }
+
+.adm-section-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--black);
+  margin: 0 0 20px;
+}
+
+/* Menu cards */
+.adm-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.adm-menu-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1.5px solid transparent;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.adm-menu-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(59,142,13,0.12);
+  transform: translateY(-2px);
+}
+
+.adm-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.adm-card-icon.green  { background: #d4edda; }
+.adm-card-icon.yellow { background: #FFF9C4; }
+.adm-card-icon.blue   { background: #D6EAF8; }
+.adm-card-icon.red    { background: #FFF0F0; }
+.adm-card-icon.purple { background: #EDE7F6; }
+.adm-card-icon.orange { background: #FFF3E0; }
+
+.adm-card-text p:first-child {
+  font-size: 15px; font-weight: 700; color: var(--black); margin: 0 0 3px;
+}
+.adm-card-text p:last-child {
+  font-size: 12px; color: var(--muted); margin: 0;
+}
+
+/* Mobile fallback */
+@media (max-width: 768px) {
+  .adm-sidebar { display: none; }
+  .adm-main    { margin-left: 0; }
+  .adm-content { padding: 16px; }
+  .adm-topbar  { padding: 12px 16px; }
+  .adm-cards-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="adm-desktop">
+
+  <!-- ── Sidebar ── -->
+  <aside class="adm-sidebar">
+    <div class="adm-sidebar-logo">
+      <img src="{% static 'jsquared_app/logo.png' %}" alt="J Squared"
+           onerror="this.style.display='none'">
+      <p style="font-size:16px;font-weight:900;color:#fff;margin:0;">J² Palutuan</p>
+      <p style="font-size:11px;color:rgba(255,255,255,0.6);margin:2px 0 0;font-weight:600;">Admin Console</p>
+    </div>
+
+    <p class="adm-sidebar-label">Management</p>
+
+    <a href="{% url 'account_list' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/>
+      </svg>
+      Accounts
+    </a>
+
+    <a href="{% url 'sales_report' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6"  y1="20" x2="6"  y2="14"/>
+      </svg>
+      Sales Report
+    </a>
+
+    <a href="{% url 'supplier_list' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/>
+        <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+      </svg>
+      Suppliers
+    </a>
+
+    <a href="{% url 'discount_list' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+        <line x1="7" y1="7" x2="7.01" y2="7"/>
+      </svg>
+      Discounts
+    </a>
+
+    <a href="{% url 'audit_log_list' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      Audit Logs
+    </a>
+
+    <a href="{% url 'backup_restore' %}" class="adm-nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+      </svg>
+      Backup / Restore
+    </a>
+
+    <div class="adm-sidebar-bottom">
+      <a href="{% url 'login' %}" class="adm-logout-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16,17 21,12 16,7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Log Out
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="adm-main">
+
+    <div class="adm-topbar">
+      <div class="adm-topbar-greeting">
+        <h2>Good morning, {{ request.session.admin_staff_name|default:"Manager" }}!</h2>
+        <p>Let's check out the orders so far</p>
+      </div>
+      <div class="adm-topbar-user">
+        <div class="adm-user-name">
+          <p>{{ request.session.admin_staff_name|default:"Manager" }}</p>
+          <p>Manager</p>
+        </div>
+        <div class="adm-avatar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="#aaa" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="adm-content">
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert-toast alert-{{ message.tags }}" style="margin:0 0 1rem;">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <p class="adm-section-title">Admin Console</p>
+
+      <div class="adm-cards-grid">
+
+        <a href="{% url 'account_list' %}" class="adm-menu-card">
+          <div class="adm-card-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E8B1F" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+              <path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Registered Accounts</p>
+            <p>Manage staff and manager accounts</p>
+          </div>
+        </a>
+
+        <a href="{% url 'sales_report' %}" class="adm-menu-card">
+          <div class="adm-card-icon yellow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="1.8" stroke-linecap="round">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6"  y1="20" x2="6"  y2="14"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Sales Report</p>
+            <p>View revenue, expenses &amp; transactions</p>
+          </div>
+        </a>
+
+        <a href="{% url 'supplier_list' %}" class="adm-menu-card">
+          <div class="adm-card-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2980b9" stroke-width="1.8" stroke-linecap="round">
+              <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/>
+              <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Suppliers</p>
+            <p>Manage supplier records &amp; transactions</p>
+          </div>
+        </a>
+
+        <a href="{% url 'discount_list' %}" class="adm-menu-card">
+          <div class="adm-card-icon orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="1.8" stroke-linecap="round">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Discount Types</p>
+            <p>Configure PWD, Senior &amp; Suki discounts</p>
+          </div>
+        </a>
+
+        <a href="{% url 'audit_log_list' %}" class="adm-menu-card">
+          <div class="adm-card-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6a1b9a" stroke-width="1.8" stroke-linecap="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Audit Logs</p>
+            <p>Track all staff actions and changes</p>
+          </div>
+        </a>
+
+        <a href="{% url 'backup_restore' %}" class="adm-menu-card">
+          <div class="adm-card-icon red">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c62828" stroke-width="1.8" stroke-linecap="round">
+              <polyline points="1,4 1,10 7,10"/>
+              <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+            </svg>
+          </div>
+          <div class="adm-card-text">
+            <p>Backup / Restore</p>
+            <p>Download or restore system data</p>
+          </div>
+        </a>
+
+      </div>
+    </div>
   </div>
 </div>
+
 {% endblock %}
