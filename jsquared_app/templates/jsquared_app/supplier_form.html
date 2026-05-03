@@ -53,12 +53,12 @@
   <p class="cr-validation" style="margin-top:12px;">All fields are required.</p>
   {% endif %}
 
-  <div style="margin-top:1.5rem;">
+  <nav class="bottom-button">
     <button type="submit" id="submitBtn" class="create-submit-btn"
             {% if mode == 'create' %}disabled{% else %}class="create-submit-btn create-submit-btn-active"{% endif %}>
       {% if mode == 'create' %}Create supplier{% else %}Save changes{% endif %}
     </button>
-  </div>
+  </nav>
 
 </form>
 
