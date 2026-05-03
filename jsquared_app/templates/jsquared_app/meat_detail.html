@@ -113,18 +113,18 @@
 </div>
 
 {% if is_manager or is_staff %}
-<div class="detail-actions" id="actionBar">
+<nav class="bottom-button detail-actions" id="actionBar">
   <button type="button" class="edit-btn" id="editBtn" onclick="enterEditMode()">
     Edit
   </button>
 
-  <div id="editActions" style="display:none;" class="od-actions">
+  <div id="editActions" style="display:none; margin-top:-1rem;" class="od-actions">
     <button type="button" class="od-btn-cancel" onclick="cancelEdit()">Cancel Edit</button>
     <button type="submit" form="editForm" class="create-submit-btn" id="saveBtn" disabled>
       Save Changes
     </button>
   </div>
-</div>
+</nav>
 {% endif %}
 
 <script>
