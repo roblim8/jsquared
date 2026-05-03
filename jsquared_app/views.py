@@ -383,6 +383,13 @@ def manager_login(request):
         request.session['admin_staff_id'] = staff.staff_id
         request.session[SESSION_STAFF_ID] = staff.staff_id
         request.session[SESSION_STAFF_ROLE] = staff.staff_role
+
+        request.session['staff'] = {
+            'staff_id': staff.staff_id,
+            'staff_name': staff.staff_name,
+            'staff_role': staff.staff_role,
+        }
+        
         request.session.modified = True
         return redirect('admin_console')
 

@@ -1,0 +1,119 @@
+{% load static %}
+<style>
+/* ── Admin Desktop Shared Styles ── */
+.adm-desktop { display:flex; min-height:100vh; max-width:100%; background:#f5f5ee; }
+.adm-sidebar {
+  width:220px; min-height:100vh; background:var(--accent);
+  display:flex; flex-direction:column; flex-shrink:0;
+  position:fixed; top:0; left:0; bottom:0; z-index:100;
+}
+.adm-sidebar-logo { padding:24px 20px 16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+.adm-sidebar-label {
+  font-size:10px; font-weight:700; color:rgba(255,255,255,0.5);
+  text-transform:uppercase; letter-spacing:0.1em; padding:20px 20px 8px; margin:0;
+}
+.adm-nav-link {
+  display:flex; align-items:center; gap:10px; padding:11px 20px;
+  color:rgba(255,255,255,0.8); text-decoration:none;
+  font-size:14px; font-weight:600; transition:background 0.15s, color 0.15s;
+}
+.adm-nav-link:hover { background:rgba(255,255,255,0.12); color:#fff; }
+.adm-nav-link.active { background:var(--primary); color:var(--black); }
+.adm-sidebar-bottom { margin-top:auto; padding:16px 20px; border-top:1px solid rgba(255,255,255,0.15); }
+.adm-logout-btn {
+  display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.7);
+  font-size:13px; font-weight:600; text-decoration:none;
+  background:none; border:none; cursor:pointer; padding:0; transition:color 0.15s;
+}
+.adm-logout-btn:hover { color:#fff; }
+.adm-main { margin-left:220px; flex:1; min-height:100vh; }
+.adm-topbar {
+  background:#fff; border-bottom:1px solid #e8e8e0; padding:16px 32px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.adm-topbar-greeting h2 { font-size:18px; font-weight:800; color:var(--black); margin:0 0 2px; }
+.adm-topbar-greeting p  { font-size:13px; color:var(--muted); margin:0; }
+.adm-topbar-user { display:flex; align-items:center; gap:10px; }
+.adm-content { padding:32px; }
+.adm-section-title { font-size:22px; font-weight:800; color:var(--black); margin:0 0 20px; }
+.adm-avatar {
+  width:40px; height:40px; border-radius:50%; background:#f0f0e8;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+@media (max-width:768px) {
+  .adm-sidebar { display:none; }
+  .adm-main    { margin-left:0; }
+  .adm-content { padding:16px; }
+  .adm-topbar  { padding:12px 16px; }
+}
+</style>
+
+<div class="adm-desktop">
+<aside class="adm-sidebar">
+    <div class="adm-sidebar-logo">
+      <img src="{% static 'jsquared_app/logo.jpg' %}" style="width:29%; height:auto;" alt="J Squared Palutuan Logo">
+      <a href="{% url 'admin_console' %}" class="adm-sidebar-link">
+        <p style="font-size:11px;color:rgba(255,255,255,0.6);margin:6px 0 0;font-weight:600;">Admin Console</p>
+      </a>
+    </div>
+
+    <p class="adm-sidebar-label">Management</p>
+
+    <a href="{% url 'account_list' %}"   class="adm-nav-link {% if active == 'accounts' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/>
+    </svg>
+        Accounts
+    </a>
+
+    <a href="{% url 'sales_report' %}"   class="adm-nav-link {% if active == 'sales' %}active{% endif %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Sales Report
+    </a>
+
+    <a href="{% url 'supplier_list' %}"  class="adm-nav-link {% if active == 'suppliers' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+        Suppliers
+    </a>
+
+    <a href="{% url 'discount_list' %}"  class="adm-nav-link {% if active == 'discounts' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        Discounts
+    </a>
+
+    <a href="{% url 'audit_log_list' %}" class="adm-nav-link {% if active == 'audit' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Audit Logs
+    </a>
+
+    <a href="{% url 'backup_restore' %}" class="adm-nav-link {% if active == 'backup' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+        </svg>
+        Backup / Restore
+    </a>
+
+    <div class="adm-sidebar-bottom">
+        <a href="{% url 'login' %}" class="adm-logout-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16,17 21,12 16,7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Log Out
+        </a>
+    </div>
+</aside>

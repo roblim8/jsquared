@@ -206,10 +206,8 @@ body {
   <!-- ── Sidebar ── -->
   <aside class="adm-sidebar">
     <div class="adm-sidebar-logo">
-      <img src="{% static 'jsquared_app/logo.png' %}" alt="J Squared"
-           onerror="this.style.display='none'">
-      <p style="font-size:16px;font-weight:900;color:#fff;margin:0;">J² Palutuan</p>
-      <p style="font-size:11px;color:rgba(255,255,255,0.6);margin:2px 0 0;font-weight:600;">Admin Console</p>
+      <img src="{% static 'jsquared_app/logo.jpg' %}" alt="J Squared Palutuan Logo">
+      <p style="font-size:11px;color:rgba(255,255,255,0.6);margin:6px 0 0;font-weight:600;">Admin Console</p>
     </div>
 
     <p class="adm-sidebar-label">Management</p>
@@ -280,12 +278,12 @@ body {
 
     <div class="adm-topbar">
       <div class="adm-topbar-greeting">
-        <h2>Good morning, {{ request.session.admin_staff_name|default:"Manager" }}!</h2>
+        <h2>Good morning, {{ request.session.staff.staff_name|default:"Manager" }}!</h2>
         <p>Let's check out the orders so far</p>
       </div>
       <div class="adm-topbar-user">
         <div class="adm-user-name">
-          <p>{{ request.session.admin_staff_name|default:"Manager" }}</p>
+          <p>{{ request.session.staff.staff_name|default:"Manager" }}</p>
           <p>Manager</p>
         </div>
         <div class="adm-avatar">
