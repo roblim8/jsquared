@@ -1,6 +1,7 @@
 {% extends "jsquared_app/base.html" %}
 {% load static %}
 {% block bottom_nav %}{% endblock %}
+{% load humanize %}
 {% block content %}
 
 <style>
@@ -218,7 +219,7 @@
 
         {% if it.fixed_item %}
           <div class="od-item-price-wrap">
-            <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0 }}</p>
+            <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0|intcomma }}</p>
           </div>
 
           <div class="od-weight-input-wrap" style="background:#efefef; margin-left: 30px;">
@@ -236,8 +237,8 @@
 
         {% elif it.varied_item %}
           <div class="od-item-price-wrap">
-            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:0 }}</p>
-            <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0 }}</p>
+            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:0|intcomma }}</p>
+            <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0|intcomma }}</p>
           </div>
 
           <div class="od-weight-input-wrap" style="margin-left: 30px;">
@@ -265,7 +266,7 @@
   <hr class="od-divider">
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:0|intcomma }}</span>
   </div>
 
 </div>
@@ -320,18 +321,22 @@
     </div>
   </div>
 
-  <!-- Column headers -->
+  <!-- ── Varied items (meats) ── -->
+  {% with varied_items=order.items.all|dictsort:"order_item_id" %}
+  {% if order.items.filter %}
+  {% endif %}
+
+  <p class="section-label" style="margin:0.75rem 0 0.5rem;">Meats</p>
   <div class="od-col-headers od-col-preparing">
     <span></span>
     <span>Item &amp; Amount</span>
     <span>Total Price</span>
     <span>Supplier</span>
   </div>
-
-  <!-- Items with checklist -->
   <div class="od-items" id="orderItems">
-    {% for it in order.items.all %}
-    <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0">
+    {% for it in order.items.all %}{% if it.varied_item %}
+    <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0"
+         data-subtotal="{{ it.subtotal|floatformat:2|intcomma  }}" data-item-type="varied">
       <button class="od-check" onclick="toggleCheck(this)" type="button">
         <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"/>
@@ -342,49 +347,73 @@
                     fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-
       <div class="od-item-info">
-        <p class="od-item-name">
-          {{ it.order_quantity }}kg
-          {% if it.fixed_item %}{{ it.fixed_item.item_name }}
-          {% elif it.varied_item %}{{ it.varied_item.meat.meat_type }}
-          {% endif %}
-        </p>
-        <p class="od-item-sub">
-          {% if it.fixed_item %}{{ it.fixed_item.item_category|default:"" }}
-          {% elif it.varied_item %}{{ it.varied_item.cooking_style.style_name }}
-          {% endif %}
-        </p>
+        <p class="od-item-name">{{ it.order_quantity }}kg {{ it.varied_item.meat.meat_type }}</p>
+        <p class="od-item-sub">{{ it.varied_item.cooking_style.style_name }}</p>
       </div>
-
-      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
-
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:1|intcomma }}</p>
       <button class="od-supplier-pill" type="button"
               data-item-id="{{ it.order_item_id }}"
-              data-item-name="{% if it.fixed_item %}{{ it.fixed_item.item_name|escapejs }}{% elif it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
-              data-supplier-name="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_name|escapejs }}{% endif %}"
-              data-supplier-contact="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.contact_person|default:''|escapejs }}{% endif %}"
-              data-supplier-phone="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.phone_number|escapejs }}{% endif %}"
-              data-supplier-address="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_address|escapejs }}{% endif %}"
+              data-item-name="{{ it.varied_item.meat.meat_type|escapejs }}"
+              data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
+              data-requires-supplier="1"
+              data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
               onclick="openSupplierModal(this)"
-              {% if not it.varied_item %}disabled{% endif %}>
-        {% if it.varied_item and it.varied_item.supplier %}
-          {{ it.varied_item.supplier.supplier_name }}
-        {% else %}
-          Select
-        {% endif %}
+              {% if it.is_effective_byom %}disabled{% endif %}>
+        {% if it.is_effective_byom %}BYOM
+        {% elif it.supplier %}{{ it.supplier.supplier_name }}
+        {% else %}Select{% endif %}
         <span id="supplierListUrl" data-url="{% url 'supplier_list' %}"></span>
       </button>
     </div>
-    {% empty %}
-    <p class="od-empty">No items on this order.</p>
-    {% endfor %}
+    {% endif %}{% endfor %}
   </div>
 
+  <!-- ── Fixed items ── -->
+  <p class="section-label" style="margin:1rem 0 0.5rem;">Other Items</p>
+  <div class="od-col-headers" 
+      style="display:grid;grid-template-columns:32px 1.6fr 1fr;gap:8px;padding:0 4px;margin-bottom:4px;">
+    <span></span>
+    <span style="font-size:11px;color:var(--muted);">Item &amp; Amount</span>
+    <span style="font-size:11px;color:var(--muted);text-align:right;">Total Price</span>
+  </div>
+  <div class="od-items" id="fixedItems">
+    {% for it in order.items.all %}{% if it.fixed_item %}
+    <div class="od-item od-item-preparing"
+     style="display:grid;grid-template-columns:32px 1.6fr 1fr;align-items:center;gap:8px;">
+  
+    <button class="od-check" onclick="toggleCheck(this)" type="button"> <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"> <circle cx="12" cy="12" r="10"/> </svg> <svg class="od-check-filled" viewBox="0 0 24 24" style="display:none;"> <circle cx="12" cy="12" r="10" fill="#2E8B1F"/> <polyline points="8,12 11,15 16,9" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/> </svg> </button>
+
+    <div class="od-item-info" style="min-width:0;">
+      <p class="od-item-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ it.order_quantity|floatformat:0 }}x {{ it.fixed_item.item_name }}
+      </p>
+      <p class="od-item-sub">{{ it.fixed_item.item_category|default:"" }}</p>
+    </div>
+
+    <p class="od-item-price" style="text-align:right;">
+      ₱ {{ it.subtotal|floatformat:1|intcomma }}
+    </p>
+  </div>
+    {% endif %}{% endfor %}
+  </div>
+  {% endwith %}
+
   <hr class="od-divider">
+
+  <!-- Subtotals -->
+  <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:4px;">
+    <span style="font-size:13px;color:var(--muted);">Meats subtotal</span>
+    <span style="font-size:13px;color:var(--muted);" id="variedSubtotal">₱ —</span>
+  </div>
+  <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:10px;">
+    <span style="font-size:13px;color:var(--muted);">Other items subtotal</span>
+    <span style="font-size:13px;color:var(--muted);" id="fixedSubtotal">₱ —</span>
+  </div>
+
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value" style="color: green">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value" style="color:green">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
 
 </div>
@@ -456,7 +485,7 @@
           {% if it.varied_item %}{{ it.varied_item.cooking_style.style_name }}{% endif %}
         </p>
       </div>
-      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:2|intcomma }}</p>
       <div></div>
     </div>
     {% endfor %}
@@ -464,7 +493,7 @@
   <hr class="od-divider">
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
   <div style="margin-top:12px;">
     <p><strong>Payment status:</strong> {{ order.payment_status }}</p>
@@ -603,10 +632,30 @@ function restoreCheckedState() {
 function updateCompleteBtn() {
   const items = document.querySelectorAll('.od-item-preparing');
   const btn = document.getElementById('completeBtn');
+
+  // Compute subtotals by item type
+  let variedTotal = 0, fixedTotal = 0;
+  items.forEach(i => {
+    const sub = parseFloat(i.dataset.subtotal || 0);
+    if (i.dataset.itemType === 'varied') variedTotal += sub;
+    else fixedTotal += sub;
+  });
+  const variedEl = document.getElementById('variedSubtotal');
+  const fixedEl  = document.getElementById('fixedSubtotal');
+  if (variedEl) variedEl.textContent = '₱ ' + Math.round(variedTotal).toLocaleString();
+  if (fixedEl)  fixedEl.textContent  = '₱ ' + Math.round(fixedTotal).toLocaleString();
+
   if (!btn || !items.length) return;
   const allChecked = [...items].every(i => i.dataset.checked === '1');
-  btn.disabled = !allChecked;
-  btn.classList.toggle('od-btn-complete-ready', allChecked);
+  const allRequiredSuppliersAssigned = [...items].every(i => {
+    const supplierBtn = i.querySelector('.od-supplier-pill');
+    if (!supplierBtn || supplierBtn.dataset.requiresSupplier !== '1') return true;
+    const label = (supplierBtn.textContent || '').trim().toLowerCase();
+    return label && label !== 'select';
+  });
+  const canComplete = allChecked && allRequiredSuppliersAssigned;
+  btn.disabled = !canComplete;
+  btn.classList.toggle('od-btn-complete-ready', canComplete);
 }
 
 function toggleAddForm() {
