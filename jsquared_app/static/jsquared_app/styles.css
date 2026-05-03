@@ -323,6 +323,21 @@ a { /* makes links look like buttons */
   z-index: 100;
 }
 
+.bottom-button {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 390px;
+  height: 94px;
+  background: var(--white);
+  box-shadow: 0 -8px 16px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 12px;
+  z-index: 100;
+}
+
 .nav-tabs-custom {
   display: flex;
   width: 100%;
