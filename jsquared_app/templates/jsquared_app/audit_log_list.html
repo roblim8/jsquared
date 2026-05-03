@@ -1,4 +1,5 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
@@ -17,33 +18,84 @@
   <h1 class="page-title">Audit Logs</h1>
 </div>
 
-
-<div class="container py-4">
-  <form method="get" class="mb-3">
-    <input class="form-control" name="q" value="{{ q }}" placeholder="Search by staff name or action">
+<!-- Search -->
+<div style="padding: 0 1.25rem 1rem;">
+  <form method="get">
+    <div class="search-wrapper" style="width:100%;box-sizing:border-box;">
+      <input type="text" name="q" class="search-input"
+             style="width:100%;"
+             value="{{ q }}" placeholder="Search by staff name or action">
+    </div>
   </form>
-
-  <div class="table-responsive">
-    <table class="table table-bordered table-sm align-middle">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Staff</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in logs %}
-        <tr>
-          <td>{{ log.created_at|date:'Y-m-d H:i:s' }}</td>
-          <td>{{ log.username|default:'—' }}</td>
-          <td>{{ log.simple_action }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="3" class="text-center">No logs yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
 </div>
+
+<!-- Log cards -->
+<div style="padding: 0 1.25rem; display:flex; flex-direction:column; gap:8px; padding-bottom:2rem;">
+  {% for log in logs %}
+  <div style="background:#fff; border-radius:14px; padding:12px 14px;
+              box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+
+    <!-- Top row: action type badge + time -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+
+      <!-- Action badge -->
+      <span style="
+        font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px;
+        {% if 'Created' in log.simple_action %}
+          background:#d4edda; color:#2E8B1F;
+        {% elif 'Deleted' in log.simple_action or 'Cancelled' in log.simple_action %}
+          background:#FFF0F0; color:#FF383C;
+        {% elif 'Updated' in log.simple_action or 'Restored' in log.simple_action %}
+          background:#FFF3CD; color:#856404;
+        {% else %}
+          background:#f0f0e8; color:#555;
+        {% endif %}
+      ">
+        {% if 'Created' in log.simple_action %}Created
+        {% elif 'Deleted' in log.simple_action %}Deleted
+        {% elif 'Cancelled' in log.simple_action %}Cancelled
+        {% elif 'Updated' in log.simple_action %}Updated
+        {% elif 'Restored' in log.simple_action %}Restored
+        {% else %}Action{% endif %}
+      </span>
+
+      <!-- Time -->
+      <span style="font-size:11px; color:var(--muted);">
+        {{ log.created_at|date:'M j, Y' }}
+        <span style="margin-left:4px;">{{ log.created_at|date:'g:i A' }}</span>
+      </span>
+
+    </div>
+
+    <!-- Action text -->
+    <p style="font-size:14px; font-weight:600; color:var(--black); margin:0 0 4px;">
+      {{ log.simple_action }}
+    </p>
+
+    <!-- Staff -->
+    <p style="font-size:12px; color:var(--muted); margin:0;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+           style="margin-right:3px;vertical-align:middle;">
+        <circle cx="12" cy="8" r="4"/>
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      {{ log.username|default:'—' }}
+    </p>
+
+  </div>
+  {% empty %}
+  <div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+         stroke="#ccc" stroke-width="1.2">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    <p>No logs yet.</p>
+  </div>
+  {% endfor %}
+</div>
+
 {% endblock %}

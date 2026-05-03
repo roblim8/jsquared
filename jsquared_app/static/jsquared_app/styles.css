@@ -89,22 +89,28 @@ a { /* makes links look like buttons */
   align-items: center;
 }
 
-.search-input {
-  flex: 1;
-  border-radius: 20px;
-  border: 1.5px solid #ddd;
+.search-wrapper {
+  display: flex;
+  align-items: center;
   background: #fff;
-  padding: 8px 16px 8px 40px;
-  font-size: 14px;
-  outline: none;
-  color: var(--muted);
-  position: relative;
+  border: 1.5px solid #ddd;
+  border-radius: 14px;
+  padding: 10px 14px;
+  gap: 8px;
+  width: 100%;        
+  box-sizing: border-box;
 }
 
-.search-wrapper {
+.search-input {
   flex: 1;
-  position: relative;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: var(--black);
+  min-width: 0;       
 }
+
 
 .search-wrapper .search-icon {
   position: absolute;
