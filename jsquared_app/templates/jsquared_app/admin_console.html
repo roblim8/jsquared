@@ -11,10 +11,11 @@ body {
   padding-bottom: 0 !important;
 }
 
-.page-scrollable {
-  max-width: 100% !important;
-  width: 100% !important;
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
 }
+
 /* ── Admin Desktop Layout ── */
 .adm-desktop {
   display: flex;
@@ -297,13 +298,6 @@ body {
     </div>
 
     <div class="adm-content">
-
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert-toast alert-{{ message.tags }}" style="margin:0 0 1rem;">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-
       <p class="adm-section-title">Admin Console</p>
 
       <div class="adm-cards-grid">
