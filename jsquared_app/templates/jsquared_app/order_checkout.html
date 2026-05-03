@@ -1,6 +1,7 @@
 {% extends "jsquared_app/base.html" %}
 {% load static %}
 {% block bottom_nav %}{% endblock %}
+{% load humanize %}
 {% block content %}
 
 <style>
@@ -85,7 +86,7 @@ table {
               </div>
             </td>
 
-            <td>₱ {{ it.subtotal|floatformat:2 }}</td>
+            <td>₱ {{ it.subtotal|floatformat:2|intcomma }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -115,7 +116,7 @@ table {
                 </option>
               {% else %}
                 <option value="{{ d.discount_id }}" data-type="{{ d.discount_type }}" {% if order.discount_id == d.discount_id %}selected{% endif %}>
-                  {{ d.discount_type }} ({{ d.discount_value|floatformat:0 }}%)
+                  {{ d.discount_type }} ({{ d.discount_value|floatformat:0|intcomma }}%)
                 </option>
               {% endif %}
             {% endfor %}
@@ -185,7 +186,7 @@ table {
 
       {% if order.discount.discount_type == "Suki" %}
         <div>Discount type: Suki</div>
-        <div>Applied rate: {{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</div>
+        <div>Applied rate: {{ discount_breakdown.applied_discount_percent|floatformat:2|intcomma }}%</div>
       {% else %}
         <div>Discount type: Senior/PWD</div>
         <div>Total diners: {{ order.diner_count }}</div>
@@ -207,44 +208,44 @@ table {
       <tbody>
         <tr>
           <td>Meat charge</td>
-          <td>₱ {{ discount_breakdown.meat_charge_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.meat_charge_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Cooking charge</td>
-          <td>₱ {{ discount_breakdown.cooking_charge_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.cooking_charge_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Fixed items</td>
-          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <th>Gross total</th>
-          <td>₱ {{ discount_breakdown.gross_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.gross_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Discountable base</td>
-          <td>₱ {{ discount_breakdown.discountable_base|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.discountable_base|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Eligible amount</td>
-          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Fixed items</td>
-          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2|intcomma }}</td>
         </tr>
         {% if order.discount and order.discount.discount_type != "Suki" %}
         <tr>
           <td>VATable sales</td>
-          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>VAT exempt</td>
-          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>20% portion</td>
-          <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
         </tr>
         {% elif order.discount and order.discount.discount_type == "Suki" %}
         <tr>
@@ -254,14 +255,14 @@ table {
         {% endif %}
         <tr>
           <td>Total discount</td>
-          <td>₱ {{ discount_breakdown.discount_total|floatformat:2 }}</td>
+          <td>₱ {{ discount_breakdown.discount_total|floatformat:2|intcomma }}</td>
         </tr>
       </tbody>
     </table>
 
   <div class="od-total-row" style="margin-top:18px; padding-top:12px; border-top:1px solid #d7d7d1;">
     <span class="od-total-label" style="font-size:20px;">Total Amount</span>
-    <span class="od-total-value" style="font-size:20px; color:#3e9b08; font-weight:800;">₱ {{ discount_breakdown.final_total|floatformat:2 }}</span>
+    <span class="od-total-value" style="font-size:20px; color:#3e9b08; font-weight:800;">₱ {{ discount_breakdown.final_total|floatformat:2|intcomma }}</span>
   </div>
 
   <div class="no-print" style="margin-top:18px; display:flex; justify-content:flex-end;">
