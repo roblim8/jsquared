@@ -123,7 +123,7 @@
   <div class="search-wrapper" style="flex:1;">
     <input type="text" class="search-input" id="supplierSearch" placeholder="Search supplier" oninput="filterSuppliers()" value="{{ q }}">
   </div>
-  <a href="{% url 'supplier_create' %}" class="create-submit-btn create-submit-btn-active" style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
+  <a href="{% url 'supplier_create' %}?order_item_id={{ order_item_id }}&return_url={{ request.GET.return_url|urlencode }}" class="create-submit-btn create-submit-btn-active" style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
     + New supplier
   </a>
 </div>

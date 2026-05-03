@@ -94,6 +94,10 @@
   cursor: not-allowed !important;
   border: 1px solid #ccc !important;
 }
+
+.od-item-preparing[data-item-type="varied"] .od-supplier-pill:disabled {
+  opacity: 0.6;
+}
 </style>
 
 <!-- Back -->
@@ -343,18 +347,26 @@
         <p class="od-item-sub">{{ it.varied_item.cooking_style.style_name }}</p>
       </div>
       <p class="od-item-price">₱ {{ it.subtotal|floatformat:1|intcomma }}</p>
-      <button class="od-supplier-pill" type="button"
-              data-item-id="{{ it.order_item_id }}"
-              data-item-name="{{ it.varied_item.meat.meat_type|escapejs }}"
-              data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
-              data-requires-supplier="1"
-              data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
-              onclick="openSupplierModal(this)"
-              {% if it.is_effective_byom %}disabled{% endif %}>
+      <button class="od-supplier-pill"
+        data-url="{% url 'supplier_list' %}"
+        data-item-id="{{ it.order_item_id }}"
+        data-supplier-id="{% if it.supplier %}{{ it.supplier.supplier_id }}{% endif %}"
+
+        data-item-name="{{ it.varied_item.meat.meat_type|escapejs }}"
+        data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
+
+        data-supplier-phone="{% if it.supplier %}{{ it.supplier.phone_number|escapejs }}{% endif %}"
+        data-supplier-address="{% if it.supplier %}{{ it.supplier.supplier_address|escapejs }}{% endif %}"
+
+        data-requires-supplier="1"
+        data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
+
+        onclick="openSupplierModal(this)"
+        {% if it.is_effective_byom %}disabled{% endif %}
+      >
         {% if it.is_effective_byom %}BYOM
         {% elif it.supplier %}{{ it.supplier.supplier_name }}
         {% else %}Select{% endif %}
-        <span id="supplierListUrl" data-url="{% url 'supplier_list' %}"></span>
       </button>
     </div>
     {% endif %}{% endfor %}
@@ -424,7 +436,7 @@
   <div class="od-modal" onclick="event.stopPropagation()">
     <p class="od-modal-title">Supplier Info</p>
     <p class="od-modal-body" id="supplierModalBody"></p>
-    <a id="changeSupplierBtn" href="{{ supplier_list }}"
+    <a id="changeSupplierBtn" href="{% url 'supplier_list' %}"
        class="card-btn btn-yellow" style="width:100%;display:block;text-align:center;margin-bottom:8px;">
       Change supplier
     </a>
@@ -570,20 +582,26 @@
 
 function toggleCheck(btn) {
   const item = btn.closest('.od-item-preparing');
+  const supplierBtn = item.querySelector('.od-supplier-pill');
+  const isByom = supplierBtn?.dataset.isByom === '1';
+
+  if (isByom) return;
+
   const empty  = btn.querySelector('.od-check-empty');
   const filled = btn.querySelector('.od-check-filled');
   const checked = item.dataset.checked === '1';
+
   item.dataset.checked = checked ? '0' : '1';
+
   empty.style.display  = checked ? '' : 'none';
   filled.style.display = checked ? 'none' : '';
+
   item.classList.toggle('od-item-checked', !checked);
-  // Enable/disable supplier button logic
-  const supplierBtn = item.querySelector('.od-supplier-pill');
+
   if (supplierBtn) {
-    // Only enable if checked and is a varied_item
-    const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-    supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+    supplierBtn.disabled = item.dataset.checked !== '1';
   }
+
   updateCompleteBtn();
   saveCheckedState();
 }
@@ -600,21 +618,43 @@ function saveCheckedState() {
 function restoreCheckedState() {
   const checkedIds = JSON.parse(sessionStorage.getItem('checkedOrderItems') || '[]');
   const items = document.querySelectorAll('.od-item-preparing');
+
   items.forEach(item => {
-    if (checkedIds.includes(item.dataset.itemId)) {
+    const supplierBtn = item.querySelector('.od-supplier-pill');
+    const isBYOM = supplierBtn?.dataset.isByom === '1';
+
+    const empty  = item.querySelector('.od-check-empty');
+    const filled = item.querySelector('.od-check-filled');
+
+    // ✅ 1. BYOM = ALWAYS checked + locked
+    if (isBYOM) {
       item.dataset.checked = '1';
       item.classList.add('od-item-checked');
+
       const empty = item.querySelector('.od-check-empty');
       const filled = item.querySelector('.od-check-filled');
+
       if (empty && filled) {
         empty.style.display = 'none';
         filled.style.display = '';
       }
-      // Enable supplier button if checked and is varied_item, else disable
-      const supplierBtn = item.querySelector('.od-supplier-pill');
+
+      supplierBtn.disabled = true;
+      return;
+    }
+
+    // ✅ 2. Restore normal checked state
+    if (checkedIds.includes(item.dataset.itemId)) {
+      item.dataset.checked = '1';
+      item.classList.add('od-item-checked');
+
+      if (empty && filled) {
+        empty.style.display = 'none';
+        filled.style.display = '';
+      }
+
       if (supplierBtn) {
-        const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-        supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+        supplierBtn.disabled = false;
       }
     }
   });
@@ -640,7 +680,12 @@ function updateCompleteBtn() {
   const allChecked = [...items].every(i => i.dataset.checked === '1');
   const allRequiredSuppliersAssigned = [...items].every(i => {
     const supplierBtn = i.querySelector('.od-supplier-pill');
-    if (!supplierBtn || supplierBtn.dataset.requiresSupplier !== '1') return true;
+    if (!supplierBtn) return true;
+
+    if (supplierBtn.dataset.isByom === '1') return true;
+
+    if (supplierBtn.dataset.requiresSupplier !== '1') return true;
+
     const label = (supplierBtn.textContent || '').trim().toLowerCase();
     return label && label !== 'select';
   });
@@ -720,34 +765,35 @@ function recalculatePendingTotal() {
 }
 
 function openSupplierModal(btn) {
-  const itemId = btn.dataset.itemId;
-  const supplierName = btn.dataset.supplierName || '';
+  const itemId        = btn.dataset.itemId;
+  const supplierName  = btn.dataset.supplierName || '';
+  const phone         = btn.dataset.supplierPhone || '';
+  const address       = btn.dataset.supplierAddress || '';
+  const baseUrl       = btn.dataset.url;
+  saveCheckedState();
 
   if (supplierName) {
-    const contact = btn.dataset.supplierContact || '';
-    const phone   = btn.dataset.supplierPhone   || '';
-    const address = btn.dataset.supplierAddress || '';
-    let html = '<strong>' + supplierName + '</strong><br>';
-    if (contact) html += 'Contact: ' + contact + '<br>';
-    if (phone)   html += 'Phone: '   + phone   + '<br>';
-    if (address) html += 'Address: ' + address;
+    let html = `<strong>${supplierName}</strong><br>`;
+
+    if (phone) {
+      html += `Phone: ${phone}<br>`;
+    }
+
+    if (address) {
+      html += `Location: ${address}`;
+    }
+
     document.getElementById('supplierModalBody').innerHTML = html;
 
     document.getElementById('changeSupplierBtn').href =
-      '/suppliers/?order_item_id=' + itemId + '&return_url=' +
-      encodeURIComponent(window.location.pathname);
+      `${baseUrl}?order_item_id=${itemId}&return_url=${encodeURIComponent(window.location.pathname)}&selected_supplier_id=${btn.dataset.supplierId}`;
 
     document.getElementById('supplierModal').style.display = 'flex';
+
   } else {
-    const baseUrl = document.getElementById('supplierListUrl').dataset.url;
-
-    document.getElementById('changeSupplierBtn').href =
-      baseUrl + '?order_item_id=' + itemId + '&return_url=' +
-      encodeURIComponent(window.location.pathname);
-
+    // No supplier yet → go directly to list
     window.location.href =
-      baseUrl + '?order_item_id=' + itemId +
-      '&return_url=' + encodeURIComponent(window.location.pathname);
+      `${baseUrl}?order_item_id=${itemId}&return_url=${encodeURIComponent(window.location.pathname)}`;
   }
 }
 
@@ -781,13 +827,21 @@ function closeCancelOrderModal() {
 document.addEventListener('DOMContentLoaded', function () {
   recalculatePendingTotal();
   restoreCheckedState();
-  // On page load, enable supplier buttons only for checked varied_items
+
   document.querySelectorAll('.od-item-preparing').forEach(item => {
     const supplierBtn = item.querySelector('.od-supplier-pill');
-    if (supplierBtn) {
-      const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-      supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+    if (!supplierBtn) return;
+
+    const isByom = supplierBtn.dataset.isByom === '1';
+
+    if (isByom) {
+      // 🔒 ALWAYS disabled
+      supplierBtn.disabled = true;
+      return;
     }
+
+    // ✅ Only enable if checked
+    supplierBtn.disabled = item.dataset.checked !== '1';
   });
 });
 </script>

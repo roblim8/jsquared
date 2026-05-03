@@ -2045,9 +2045,19 @@ def supplier_create(request):
 
         return_url = request.GET.get("return_url")
         order_item_id = request.GET.get("order_item_id")
+        
+        if order_item_id:
+            try:
+                item = OrderItem.objects.get(pk=order_item_id)
+                item.supplier = supplier
+                item.save()
+            except OrderItem.DoesNotExist:
+                pass
+
         if return_url:
-            return redirect(f"{reverse('supplier_list')}?return_url={return_url}&order_item_id={order_item_id}")
-        return redirect("supplier_list")
+            return redirect(return_url)
+
+        return redirect('admin_console')
 
     return render(request, "jsquared_app/supplier_form.html", {"mode": "create", "return_url": request.GET.get("return_url") or "", "order_item_id": request.GET.get("order_item_id") or ""})
 

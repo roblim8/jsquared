@@ -21,6 +21,9 @@
 <form method="post" id="supplierForm" style="padding: 0 1.25rem;">
   {% csrf_token %}
 
+  <input type="hidden" name="order_item_id" value="{{ request.GET.order_item_id }}">
+  <input type="hidden" name="return_url" value="{{ request.GET.return_url }}">  
+  
   <div class="sup-form-card">
     <p class="sup-form-section-title">Supplier details</p>
 
