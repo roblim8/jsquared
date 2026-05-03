@@ -3,111 +3,150 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<div class="detail-topbar">
-  <a href="{% url 'admin_console' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable { max-width:100%!important; width:100%!important; }
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}</style>
 
-<div class="page-header">
-  <h1 class="page-title">Backup / Restore</h1>
-</div>
+{% include "jsquared_app/admin_navigation.html" with active="backup" %}
 
-<div style="padding: 0 1.25rem; display:flex; flex-direction:column; gap:14px; padding-bottom:2rem; margin-top:0.5rem;">
+<div class="adm-main">
 
-  <!-- Download Backup -->
-  <div class="od-card">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#d4edda;
-                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-             stroke="#2E8B1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-          <polyline points="7,10 12,15 17,10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </div>
-      <div>
-        <p style="font-size:15px;font-weight:700;color:var(--black);margin:0;">Download Backup</p>
-        <p style="font-size:12px;color:var(--muted);margin:0;">Save a copy of all current system data</p>
-      </div>
+  <div class="adm-topbar">
+    <div class="adm-topbar-greeting">
+      <h2>Backup / Restore</h2>
+      <p>Download or restore system data</p>
     </div>
-    <a href="{% url 'backup_download' %}"
-       class="create-submit-btn create-submit-btn-active"
-       style="display:block;text-align:center;text-decoration:none;
-              background:var(--accent);color:#fff;">
-      Download Backup
-    </a>
   </div>
 
-  <!-- Restore Backup -->
-  <div class="od-card">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#FFF0F0;
-                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-             stroke="#FF383C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="1,4 1,10 7,10"/>
-          <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
-        </svg>
+  <div class="adm-content">
+    <div class="row g-4 justify-content-center">
+
+      <!-- Download Backup -->
+      <div class="col-12 col-md-5">
+        <div style="background:#fff;border-radius:16px;padding:24px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);height:100%;">
+
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+            <div style="width:52px;height:52px;border-radius:14px;background:#d4edda;
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                   stroke="#2E8B1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7,10 12,15 17,10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <div>
+              <p style="font-size:16px;font-weight:800;color:var(--black);margin:0;">Download Backup</p>
+              <p style="font-size:13px;color:var(--muted);margin:0;">
+                Save a copy of all current system data
+              </p>
+            </div>
+          </div>
+
+          <p style="font-size:13px;color:var(--muted);margin:0 0 20px;line-height:1.6;">
+            Creates a complete JSON snapshot of your database — orders, suppliers, staff, menu items, and settings. Store this file somewhere safe.
+          </p>
+
+          <a href="{% url 'backup_download' %}"
+             style="display:flex;align-items:center;justify-content:center;gap:8px;
+                    background:var(--accent);color:#fff;text-decoration:none;
+                    border-radius:14px;padding:13px;font-size:14px;font-weight:700;margin-top: 124px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Backup
+          </a>
+
+        </div>
       </div>
-      <div>
-        <p style="font-size:15px;font-weight:700;color:var(--black);margin:0;">Restore Backup</p>
-        <p style="font-size:12px;color:var(--muted);margin:0;">Upload a backup file to restore system data</p>
+
+      <!-- Restore Backup -->
+      <div class="col-12 col-md-5">
+        <div style="background:#fff;border-radius:16px;padding:24px;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.06);height:100%;">
+
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+            <div style="width:52px;height:52px;border-radius:14px;background:#FFF0F0;
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                   stroke="#FF383C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1,4 1,10 7,10"/>
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+              </svg>
+            </div>
+            <div>
+              <p style="font-size:16px;font-weight:800;color:var(--black);margin:0;">Restore Backup</p>
+              <p style="font-size:13px;color:var(--muted);margin:0;">
+                Upload a backup file to restore system data
+              </p>
+            </div>
+          </div>
+
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <label style="font-size:13px;font-weight:600;color:var(--black);
+                           display:block;margin-bottom:6px;">
+              Backup file <span style="color:#FF383C;">*</span>
+            </label>
+            <label class="login-input-wrapper"
+                   style="cursor:pointer;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="#aaa" stroke-width="1.5" stroke-linecap="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17,8 12,3 7,8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span id="fileLabel" style="flex:1;font-size:14px;color:#aaa;">
+                Choose a .json backup file
+              </span>
+              <input type="file" name="backup_file" id="backupFile"
+                     accept="application/json" required
+                     style="display:none;" onchange="updateFileLabel(this)">
+            </label>
+
+            <!-- Warning -->
+            <div style="display:flex;gap:10px;align-items:flex-start;
+                        background:#FFF3CD;border-radius:12px;padding:12px 14px;margin-bottom:16px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="#856404" stroke-width="1.5" stroke-linecap="round"
+                   style="flex-shrink:0;margin-top:1px;">
+                <polygon points="12,2 2,22 22,22"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <p style="font-size:12px;color:#856404;margin:0;line-height:1.6;">
+                Restoring will <strong>overwrite all current data</strong>. This action cannot be undone. Make sure you have a recent backup before proceeding.
+              </p>
+            </div>
+
+            <button type="submit"
+                    style="display:flex;align-items:center;justify-content:center;gap:8px;
+                           width:100%;background:#FF383C;color:#fff;border:none;
+                           border-radius:14px;padding:13px;font-size:14px;font-weight:700;
+                           cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <polyline points="1,4 1,10 7,10"/>
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+              </svg>
+              Restore Backup
+            </button>
+          </form>
+
+        </div>
       </div>
+
     </div>
-
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-
-      <!-- Custom file input -->
-      <label style="display:block;font-size:13px;font-weight:600;color:var(--black);margin-bottom:6px;">
-        Backup file <span style="color:#FF383C;">*</span>
-      </label>
-      <label class="login-input-wrapper" style="cursor:pointer;margin-bottom:14px;
-             display:flex;align-items:center;gap:10px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-             stroke="#aaa" stroke-width="1.5" stroke-linecap="round">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-          <polyline points="17,8 12,3 7,8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <span id="fileLabel" style="flex:1;font-size:14px;color:#aaa;">
-          Choose a .json backup file
-        </span>
-        <input type="file" name="backup_file" id="backupFile"
-               accept="application/json" required
-               style="display:none;"
-               onchange="updateFileLabel(this)">
-      </label>
-
-      <!-- Warning note -->
-      <div style="display:flex;gap:8px;align-items:flex-start;
-                  background:#FFF3CD;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="#856404" stroke-width="1.5" stroke-linecap="round" flex-shrink="0"
-             style="flex-shrink:0;margin-top:1px;">
-          <polygon points="12,2 2,22 22,22"/>
-          <line x1="12" y1="9" x2="12" y2="13"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-        <p style="font-size:12px;color:#856404;margin:0;line-height:1.5;">
-          Restoring a backup will overwrite all current data. This action cannot be undone.
-        </p>
-      </div>
-
-      <button type="submit" class="create-submit-btn create-submit-btn-active"
-              style="width:100%;background:#FF383C;color:#fff;">
-        Restore Backup
-      </button>
-    </form>
   </div>
-
 </div>
 
 <script>
