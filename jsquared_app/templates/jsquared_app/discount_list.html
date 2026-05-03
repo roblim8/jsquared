@@ -34,7 +34,6 @@
         <td>{{ discount.discount_value }}</td>
         <td>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'discount_edit' discount.discount_id %}">Edit</a>
-          <a class="btn btn-sm btn-outline-danger" href="{% url 'discount_delete' discount.discount_id %}">Delete</a>
         </td>
       </tr>
       {% empty %}
