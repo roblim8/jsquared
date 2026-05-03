@@ -19,22 +19,24 @@
 
 
 <div class="container py-4">
-  <div class="row g-4">
-    <div class="col-lg-6">
+  <div class="row">
+    <div class="col-lg-12">
       <div class="card p-3 h-100">
         <h5>Download Backup</h5>
         <p class="text-muted mb-3">Download a copy of your current system data so you have a saved backup.</p>
         <a href="{% url 'backup_download' %}" class="btn btn-success">Download Backup</a>
       </div>
     </div>
-    <div class="col-lg-6">
+  </div>
+  <div class="row mt-4">
+    <div class="col-lg-12">
       <div class="card p-3 h-100">
         <h5>Restore Backup</h5>
         <p class="text-muted mb-3">Upload a backup file to restore saved system data.</p>
         <form method="post" enctype="multipart/form-data">
           {% csrf_token %}
           <input type="file" name="backup_file" class="form-control mb-3" accept="application/json" required>
-          <button class="btn btn-danger">Restore Backup</button>
+          <button class="btn btn-danger col-12">Restore Backup</button>
         </form>
       </div>
     </div>
