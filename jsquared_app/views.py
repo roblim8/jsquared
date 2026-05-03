@@ -2121,7 +2121,7 @@ def supplier_create(request):
         if return_url:
             return redirect(return_url)
 
-        return redirect('admin_console')
+        return redirect('supplier_list')
 
     return render(request, "jsquared_app/supplier_form.html", {"mode": "create", "return_url": request.GET.get("return_url") or "", "order_item_id": request.GET.get("order_item_id") or ""})
 
