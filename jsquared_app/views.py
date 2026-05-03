@@ -262,6 +262,27 @@ def _ensure_default_discounts():
             discount.discount_value = 0.0
             discount.save(update_fields=["discount_value"])
 
+
+def _validate_varied_item_weight(varied_item, qty, errors):
+    """Validate an order weight against the selected meat item's allowed range."""
+    try:
+        qty = float(qty or 0)
+    except (TypeError, ValueError):
+        errors.append("Order quantity must be numeric.")
+        return
+
+    meat = varied_item.meat
+
+    if qty <= 0:
+        errors.append("Order quantity must be greater than zero.")
+        return
+
+    if meat.weight_min and qty < float(meat.weight_min):
+        errors.append(f"{meat.meat_type} minimum order weight is {meat.weight_min} kg.")
+
+    if meat.weight_max and qty > float(meat.weight_max):
+        errors.append(f"{meat.meat_type} maximum order weight is {meat.weight_max} kg.")
+
 # ============================================================
 # LOGIN / LOGOUT
 # ============================================================
@@ -948,10 +969,101 @@ import json
 def order_create(request):
     staff = _current_staff(request)
 
+    _ensure_varied_items_synced()
+
+    meats = MeatItem.objects.filter(is_active=True, item_status="Available").order_by("meat_type")
+    cooking_styles = CookingStyle.objects.filter(is_active=True)
+    fixed_items = FixedMenuItem.objects.filter(is_active=True)
+
+    cooking_styles_json = json.dumps([
+        {"id": s.cooking_style_id, "name": s.style_name, "price": s.cooking_charge}
+        for s in cooking_styles
+    ])
+
+    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").filter(
+        is_active=True, meat__is_active=True, cooking_style__is_active=True
+    )
+    varied_items_json = json.dumps([
+        {
+            "meat_id": v.meat_id,
+            "style_id": v.cooking_style_id,
+            "style_name": v.cooking_style.style_name,
+            "add_on_price": v.item_price,
+            "is_byom": v.is_byom,
+            "weight_min": v.meat.weight_min,
+            "weight_max": v.meat.weight_max,
+        }
+        for v in varied_items
+    ])
+
+    context = {
+        "meats": meats,
+        "cooking_styles_json": cooking_styles_json,
+        "varied_items_json": varied_items_json,
+        "alacarte_items": fixed_items.filter(item_category__icontains="ala carte"),
+        "drink_items": fixed_items.filter(item_category__icontains="drink"),
+        "extra_items": fixed_items.exclude(
+            item_category__icontains="ala carte"
+        ).exclude(item_category__icontains="drink"),
+        "weight_options": range(1, 21),
+    }
+
     if request.method == "POST":
         customer_name = request.POST.get("customer_name") or None
         table_num = int(request.POST.get("table_num") or 1)
         items_json = request.POST.get("items_json") or "[]"
+        errors = []
+
+        try:
+            items = json.loads(items_json)
+        except json.JSONDecodeError:
+            items = []
+            errors.append("Invalid order item data.")
+
+        if not items:
+            errors.append("Cannot create an empty order.")
+
+        prepared_items = []
+
+        for item in items:
+            try:
+                item_type = item.get("type")
+
+                if item_type == "varied":
+                    varied = get_object_or_404(
+                        VariedMenuItem.objects.select_related("meat", "cooking_style"),
+                        meat_id=item.get("meatId"),
+                        cooking_style_id=item.get("styleId"),
+                        is_active=True,
+                        meat__is_active=True,
+                        cooking_style__is_active=True,
+                    )
+
+                    qty = float(item.get("weight") or 0)
+                    _validate_varied_item_weight(varied, qty, errors)
+                    prepared_items.append({
+                        "type": "varied",
+                        "varied": varied,
+                        "qty": qty,
+                        "is_byom": bool(item.get("is_byom", False)),
+                    })
+
+                elif item_type == "fixed":
+                    fixed = get_object_or_404(FixedMenuItem, fixed_item_id=item.get("fixedId"), is_active=True)
+                    qty = float(item.get("qty") or 1)
+                    if qty <= 0:
+                        errors.append(f"{fixed.item_name} quantity must be greater than zero.")
+                    prepared_items.append({"type": "fixed", "fixed": fixed, "qty": qty})
+
+                else:
+                    errors.append("Invalid menu item type.")
+
+            except (TypeError, ValueError):
+                errors.append("Order quantity must be numeric.")
+
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/order_create.html", context)
 
         order = Order.objects.create(
             staff=staff,
@@ -965,79 +1077,35 @@ def order_create(request):
             order_type=request.POST.get("order_type") == "1",
         )
 
-        try:
-            items = json.loads(items_json)
-            for item in items:
-                if item["type"] == "varied":
-                    varied = get_object_or_404(
-                        VariedMenuItem,
-                        meat_id=item["meatId"],
-                        cooking_style_id=item["styleId"],
+        for prepared in prepared_items:
+            if prepared["type"] == "varied":
+                oi = OrderItem.objects.create(
+                    order=order,
+                    varied_item=prepared["varied"],
+                    order_quantity=prepared["qty"],
+                )
+
+                if prepared["is_byom"]:
+                    cooking_charge = float(prepared["varied"].item_price or 0)
+                    OrderItem.objects.filter(order_item_id=oi.order_item_id).update(
+                        order_unit_price=0.0,
+                        cooking_charge=cooking_charge,
+                        subtotal=float(prepared["qty"]) * cooking_charge,
                     )
 
-                    oi = OrderItem.objects.create(
-                        order=order,
-                        varied_item=varied,
-                        order_quantity=item["weight"],
-                    )
-
-                    if item.get("is_byom", False):
-                        OrderItem.objects.filter(order_item_id=oi.order_item_id).update(
-                            order_unit_price=0.0,
-                            cooking_charge=float(varied.item_price),
-                            subtotal=float(item["weight"]) * float(varied.item_price),
-                        )
-
-                elif item["type"] == "fixed":
-                    fixed = get_object_or_404(FixedMenuItem, fixed_item_id=item["fixedId"])
-                    OrderItem.objects.create(
-                        order=order,
-                        fixed_item=fixed,
-                        order_quantity=item["qty"],
-                    )
-        except Exception:
-            pass
+            elif prepared["type"] == "fixed":
+                OrderItem.objects.create(
+                    order=order,
+                    fixed_item=prepared["fixed"],
+                    order_quantity=prepared["qty"],
+                )
 
         order.recompute_total()
         log_action(request, f"Created order #{order.order_id:03d}", "Order", f"Order #{order.order_id:03d}", action="CREATE")
         messages.success(request, "Order placed!")
         return redirect("order_list")
 
-    _ensure_varied_items_synced()
-
-    meats = MeatItem.objects.filter(is_active=True, item_status="Available").order_by("meat_type")
-    cooking_styles = CookingStyle.objects.filter(is_active=True)
-    fixed_items = FixedMenuItem.objects.filter(is_active=True)
-
-    cooking_styles_json = json.dumps([
-        {"id": s.cooking_style_id, "name": s.style_name, "price": s.cooking_charge}
-        for s in cooking_styles
-    ])
-
-    varied_items = VariedMenuItem.objects.select_related("meat", "cooking_style").filter(is_active=True, meat__is_active=True, cooking_style__is_active=True)
-    varied_items_json = json.dumps([
-        {
-            "meat_id": v.meat_id,
-            "style_id": v.cooking_style_id,
-            "style_name": v.cooking_style.style_name,
-            "add_on_price": v.item_price,
-            "is_byom": v.is_byom,
-        }
-        for v in varied_items
-    ])
-
-    return render(request, "jsquared_app/order_create.html", {
-        "meats": meats,
-        "cooking_styles_json": cooking_styles_json,
-        "varied_items_json": varied_items_json,
-        "alacarte_items": fixed_items.filter(item_category__icontains="ala carte"),
-        "drink_items": fixed_items.filter(item_category__icontains="drink"),
-        "extra_items": fixed_items.exclude(
-            item_category__icontains="ala carte"
-        ).exclude(item_category__icontains="drink"),
-        "weight_options": range(1, 21),
-    })
-
+    return render(request, "jsquared_app/order_create.html", context)
 
 @staff_login_required
 @require_roles("Staff", "Cashier", "Manager")
@@ -1067,9 +1135,15 @@ def order_detail(request, order_id: int):
                 return redirect("order_detail", order_id=order.order_id)
 
             key = (request.POST.get("menu_item_key") or "").strip()
-            qty = float(request.POST.get("order_quantity") or 1)
+            try:
+                qty = float(request.POST.get("order_quantity") or 1)
+            except (TypeError, ValueError):
+                messages.error(request, "Order quantity must be numeric.")
+                return redirect("order_detail", order_id=order.order_id)
+
             if qty <= 0:
-                qty = 1
+                messages.error(request, "Order quantity must be greater than zero.")
+                return redirect("order_detail", order_id=order.order_id)
 
             if ":" not in key:
                 return HttpResponseForbidden("Invalid menu item.")
@@ -1080,13 +1154,27 @@ def order_detail(request, order_id: int):
             is_byom = request.POST.get("is_byom") == "1"
 
             if kind == "fixed":
-                fixed_item = get_object_or_404(FixedMenuItem, fixed_item_id=item_id)
+                fixed_item = get_object_or_404(FixedMenuItem, fixed_item_id=item_id, is_active=True)
                 OrderItem.objects.create(order=order, fixed_item=fixed_item, order_quantity=qty)
+
             elif kind == "varied":
-                varied_item = get_object_or_404(VariedMenuItem, varied_item_id=item_id)
+                varied_item = get_object_or_404(
+                    VariedMenuItem.objects.select_related("meat", "cooking_style"),
+                    varied_item_id=item_id,
+                    is_active=True,
+                    meat__is_active=True,
+                    cooking_style__is_active=True,
+                )
+
+                errors = []
+                _validate_varied_item_weight(varied_item, qty, errors)
+                if errors:
+                    _message_errors(request, errors)
+                    return redirect("order_detail", order_id=order.order_id)
+
                 oi = OrderItem.objects.create(order=order, varied_item=varied_item, order_quantity=qty)
                 if is_byom:
-                    cooking_charge = float(varied_item.cooking_style.cooking_charge)
+                    cooking_charge = float(varied_item.item_price or varied_item.cooking_style.cooking_charge or 0)
                     OrderItem.objects.filter(order_item_id=oi.order_item_id).update(
                         order_unit_price=0.0,
                         cooking_charge=cooking_charge,
@@ -1102,7 +1190,6 @@ def order_detail(request, order_id: int):
 
     order.recompute_total()
     return render(request, "jsquared_app/order_detail.html", {"order": order, "menu_items": menu_items})
-
 
 @staff_login_required
 @require_roles("Staff", "Cashier", "Manager")
@@ -1311,7 +1398,7 @@ def order_item_delete(request, order_id: int, order_item_id: int):
 
 
 @staff_login_required
-@require_roles("Manager")
+@require_roles("Staff", "Manager")
 def order_delete(request, order_id: int):
     order = get_object_or_404(Order, order_id=order_id)
 
@@ -1559,8 +1646,6 @@ def cooking_styles_list(request):
             models.Q(meat_type__icontains=q) | models.Q(cooking_styles__style_name__icontains=q, cooking_styles__is_active=True)
         ).distinct()
     return render(request, "jsquared_app/cooking_styles_list.html", {"meat_items": meat_items, "q": q})
-
-
 @staff_login_required
 @require_roles("Staff", "Manager")
 def cooking_style_create(request, meat_id: int):
@@ -1570,9 +1655,9 @@ def cooking_style_create(request, meat_id: int):
         errors = []
         style_name = (request.POST.get("style_name") or "").strip()
         style_description = (request.POST.get("style_description") or "").strip()
-        cooking_charge = _as_float(request.POST.get("cooking_charge"), "Cooking charge", errors)
-        c_weight_min = _as_float(request.POST.get("c_weight_min"), "Minimum weight", errors)
-        c_weight_max = _as_float(request.POST.get("c_weight_max"), "Maximum weight", errors)
+        cooking_charge = _as_float(request.POST.get("cooking_charge"), "Cooking charge per kg", errors)
+        c_weight_min = 0
+        c_weight_max = 0
         icon = request.FILES.get("icon")
 
         if not style_name:
@@ -1584,26 +1669,27 @@ def cooking_style_create(request, meat_id: int):
         if style_description and len(style_description) > 200:
             errors.append("Add not permitted. Description exceeds the maximum allowable number of characters (200). Please input a shorter description.")
         if cooking_charge is not None and cooking_charge <= 0:
-            errors.append("Cooking charge must be greater than zero.")
-        if c_weight_min is not None and c_weight_min <= 0:
-            errors.append("Minimum weight must be greater than zero.")
-        if c_weight_max is not None and c_weight_max <= 0:
-            errors.append("Maximum weight must be greater than zero.")
-        if c_weight_min is not None and c_weight_max is not None and c_weight_min > c_weight_max:
-            errors.append("Add not permitted. Minimum weight cannot be greater than maximum weight.")
+            errors.append("Cooking charge per kg must be greater than zero.")
         _valid_file(icon, "Cooking style icon", errors)
 
         if errors:
             _message_errors(request, errors)
             return render(request, "jsquared_app/cooking_style_create.html", {"meat": meat, "form": request.POST})
 
-        style = CookingStyle.objects.create(meat_item=meat, style_name=style_name, style_description=style_description, cooking_charge=cooking_charge, c_weight_min=c_weight_min, c_weight_max=c_weight_max, icon=icon)
+        style = CookingStyle.objects.create(
+            meat_item=meat,
+            style_name=style_name,
+            style_description=style_description,
+            cooking_charge=cooking_charge,
+            c_weight_min=c_weight_min,
+            c_weight_max=c_weight_max,
+            icon=icon,
+        )
         log_action(request, f"Created cooking style: {style.style_name} for {meat.meat_type}", "CookingStyle", style.style_name, action="CREATE")
-        messages.success(request, "Cooking style successfully added.")
+        messages.success(request, "Cooking style successfully added. Cooking charge is computed per kg.")
         return redirect("meat_category", meat_id=meat.meat_id)
 
     return render(request, "jsquared_app/cooking_style_create.html", {"meat": meat})
-
 
 @staff_login_required
 @require_roles("Staff", "Manager")
@@ -1611,19 +1697,46 @@ def cooking_style_edit(request, cooking_style_id: int):
     c = get_object_or_404(CookingStyle, cooking_style_id=cooking_style_id, is_active=True)
 
     if request.method == "POST":
-        c.style_name = (request.POST.get("style_name") or c.style_name).strip()
-        c.style_description = (request.POST.get("style_description") or c.style_description).strip()
-        c.cooking_charge = float(request.POST.get("cooking_charge") or c.cooking_charge)
-        c.c_weight_min = float(request.POST.get("c_weight_min") or c.c_weight_min)
-        c.c_weight_max = float(request.POST.get("c_weight_max") or c.c_weight_max)
-        if request.FILES.get("icon"):
-            c.icon = request.FILES.get("icon")
+        errors = []
+        style_name = (request.POST.get("style_name") or c.style_name).strip()
+        style_description = (request.POST.get("style_description") or "").strip()
+        cooking_charge = _as_float(request.POST.get("cooking_charge"), "Cooking charge per kg", errors)
+        icon = request.FILES.get("icon")
+
+        if not style_name:
+            errors.append("Cooking style name is required.")
+        elif len(style_name) > 50:
+            errors.append("Cooking style name exceeds the maximum allowable number of characters. Please input a shorter name.")
+        elif CookingStyle.objects.filter(
+            meat_item=c.meat_item,
+            style_name__iexact=style_name,
+            is_active=True,
+        ).exclude(cooking_style_id=c.cooking_style_id).exists():
+            errors.append("Update not permitted. Cooking style name already exists for this meat. Please input a unique cooking style name.")
+
+        if style_description and len(style_description) > 200:
+            errors.append("Description exceeds the maximum allowable number of characters (200). Please input a shorter description.")
+        if cooking_charge is not None and cooking_charge <= 0:
+            errors.append("Cooking charge per kg must be greater than zero.")
+        _valid_file(icon, "Cooking style icon", errors)
+
+        if errors:
+            _message_errors(request, errors)
+            return render(request, "jsquared_app/cooking_style_edit.html", {"c": c, "form": request.POST})
+
+        c.style_name = style_name
+        c.style_description = style_description
+        c.cooking_charge = cooking_charge
+        c.c_weight_min = 0
+        c.c_weight_max = 0
+        if icon:
+            c.icon = icon
         c.save()
         log_action(request, f"Updated cooking style: {c.style_name}", "CookingStyle", c.style_name, action="UPDATE")
+        messages.success(request, "Cooking style updated. Cooking charge is computed per kg.")
         return redirect("meat_category", meat_id=c.meat_item_id)
 
     return render(request, "jsquared_app/cooking_style_edit.html", {"c": c})
-
 
 @staff_login_required
 @require_roles("Manager")
