@@ -3,99 +3,129 @@
 {% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<div class="detail-topbar">
-  <a href="{% url 'admin_console' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable { max-width:100%!important; width:100%!important; }
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}
+.log-badge {
+  font-size:11px; font-weight:700; padding:3px 10px;
+  border-radius:99px; white-space:nowrap; flex-shrink:0;
+}
+.log-created  { background:#d4edda; color:#2E8B1F; }
+.log-deleted  { background:#FFF0F0; color:#FF383C; }
+.log-updated  { background:#FFF3CD; color:#856404; }
+.log-default  { background:#f0f0e8; color:#555; }
+</style>
 
-<div class="page-header">
-  <h1 class="page-title">Audit Logs</h1>
-</div>
+{% include "jsquared_app/admin_navigation.html" with active="audit" %}
 
-<!-- Search -->
-<div style="padding: 0 1.25rem 1rem;">
-  <form method="get">
-    <div class="search-wrapper" style="width:100%;box-sizing:border-box;">
-      <input type="text" name="q" class="search-input"
-             style="width:100%;"
-             value="{{ q }}" placeholder="Search by staff name or action">
+<div class="adm-main">
+
+  <div class="adm-topbar">
+    <div class="adm-topbar-greeting">
+      <h2>Audit Logs</h2>
+      <p>Track all staff actions and system changes</p>
     </div>
-  </form>
-</div>
+  </div>
 
-<!-- Log cards -->
-<div style="padding: 0 1.25rem; display:flex; flex-direction:column; gap:8px; padding-bottom:2rem;">
-  {% for log in logs %}
-  <div style="background:#fff; border-radius:14px; padding:12px 14px;
-              box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-
-    <!-- Top row: action type badge + time -->
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-
-      <!-- Action badge -->
-      <span style="
-        font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px;
-        {% if 'Created' in log.simple_action %}
-          background:#d4edda; color:#2E8B1F;
-        {% elif 'Deleted' in log.simple_action or 'Cancelled' in log.simple_action %}
-          background:#FFF0F0; color:#FF383C;
-        {% elif 'Updated' in log.simple_action or 'Restored' in log.simple_action %}
-          background:#FFF3CD; color:#856404;
-        {% else %}
-          background:#f0f0e8; color:#555;
-        {% endif %}
-      ">
-        {% if 'Created' in log.simple_action %}Created
-        {% elif 'Deleted' in log.simple_action %}Deleted
-        {% elif 'Cancelled' in log.simple_action %}Cancelled
-        {% elif 'Updated' in log.simple_action %}Updated
-        {% elif 'Restored' in log.simple_action %}Restored
-        {% else %}Action{% endif %}
-      </span>
-
-      <!-- Time -->
-      <span style="font-size:11px; color:var(--muted);">
-        {{ log.created_at|date:'M j, Y' }}
-        <span style="margin-left:4px;">{{ log.created_at|date:'g:i A' }}</span>
-      </span>
-
+  <div class="adm-content">
+    <!-- Search -->
+    <div style="margin-bottom:20px;max-width:1200px;">
+      <form method="get">
+        <div class="search-wrapper" style="width:100%;box-sizing:border-box;">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" name="q" class="search-input"
+                 value="{{ q }}" placeholder="Search by staff name or action">
+        </div>
+      </form>
     </div>
 
-    <!-- Action text -->
-    <p style="font-size:14px; font-weight:600; color:var(--black); margin:0 0 4px;">
-      {{ log.simple_action }}
-    </p>
+    <!-- Log table on desktop, cards on mobile -->
+    <div style="background:#fff;border-radius:14px;padding:20px;
+                box-shadow:0 1px 4px rgba(0,0,0,0.06);">
 
-    <!-- Staff -->
-    <p style="font-size:12px; color:var(--muted); margin:0;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-           style="margin-right:3px;vertical-align:middle;">
-        <circle cx="12" cy="8" r="4"/>
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-      </svg>
-      {{ log.username|default:'—' }}
-    </p>
+      <!-- Table header -->
+      <div style="display:grid;grid-template-columns:140px 80px 1fr 140px;gap:16px;
+                  padding:0 4px 10px;border-bottom:1px solid #f0f0e8;">
+        <p style="font-size:11px;color:var(--muted);font-weight:700;
+                   text-transform:uppercase;letter-spacing:0.05em;margin:0;">Time</p>
+        <p style="font-size:11px;color:var(--muted);font-weight:700;
+                   text-transform:uppercase;letter-spacing:0.05em;margin:0;">Type</p>
+        <p style="font-size:11px;color:var(--muted);font-weight:700;
+                   text-transform:uppercase;letter-spacing:0.05em;margin:0;">Action</p>
+        <p style="font-size:11px;color:var(--muted);font-weight:700;
+                   text-transform:uppercase;letter-spacing:0.05em;margin:0;">Staff</p>
+      </div>
 
+      <!-- Log rows -->
+      {% for log in logs %}
+      <div style="display:grid;grid-template-columns:140px 80px 1fr 140px;gap:16px;
+                  padding:12px 4px;border-bottom:1px solid #f7f7f0;align-items:center;">
+
+        <!-- Time -->
+        <div>
+          <p style="font-size:13px;color:var(--black);font-weight:600;margin:0;">
+            {{ log.created_at|date:'M j, Y' }}
+          </p>
+          <p style="font-size:11px;color:var(--muted);margin:0;">
+            {{ log.created_at|date:'g:i A' }}
+          </p>
+        </div>
+
+        <!-- Badge -->
+        <div>
+          <span class="log-badge
+            {% if 'Created' in log.simple_action %}log-created
+            {% elif 'Deleted' in log.simple_action or 'Cancelled' in log.simple_action %}log-deleted
+            {% elif 'Updated' in log.simple_action or 'Restored' in log.simple_action %}log-updated
+            {% else %}log-default{% endif %}">
+            {% if 'Created' in log.simple_action %}Created
+            {% elif 'Deleted' in log.simple_action %}Deleted
+            {% elif 'Cancelled' in log.simple_action %}Cancelled
+            {% elif 'Updated' in log.simple_action %}Updated
+            {% elif 'Restored' in log.simple_action %}Restored
+            {% else %}Action{% endif %}
+          </span>
+        </div>
+
+        <!-- Action -->
+        <p style="font-size:14px;font-weight:600;color:var(--black);margin:0;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ log.simple_action }}
+        </p>
+
+        <!-- Staff -->
+        <div style="display:flex;align-items:center;gap:6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+               stroke="#aaa" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          <p style="font-size:13px;color:var(--muted);margin:0;">{{ log.username|default:'—' }}</p>
+        </div>
+
+      </div>
+      {% empty %}
+      <div class="empty-state" style="margin:20px 0;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <p>No logs yet.</p>
+      </div>
+      {% endfor %}
+
+    </div>
   </div>
-  {% empty %}
-  <div class="empty-state">
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-         stroke="#ccc" stroke-width="1.2">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-      <polyline points="14,2 14,8 20,8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-    </svg>
-    <p>No logs yet.</p>
-  </div>
-  {% endfor %}
 </div>
 
 {% endblock %}
