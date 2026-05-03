@@ -5,9 +5,10 @@
 
 <style>
 body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
-.page-scrollable { max-width:100%!important; width:100%!important; }
-.page-scrollable > div.container { margin-left:220px; }
-
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}
 .sup-tx-card {
   background:#fff; border-radius:14px; padding:14px 16px;
   box-shadow:0 1px 4px rgba(0,0,0,0.06); border:1.5px solid transparent; margin-bottom:10px;
@@ -68,7 +69,7 @@ body { max-width:100%!important; width:100%!important; padding-bottom:0!importan
 
       <!-- Left: supplier info + pending payment -->
       <div class="col-12 col-lg-4">
-        
+
         <!-- Pending payment card -->
         <div style="background:#fff;border-radius:16px;padding:20px;
                     box-shadow:0 1px 4px rgba(0,0,0,0.06);
@@ -130,12 +131,11 @@ body { max-width:100%!important; width:100%!important; padding-bottom:0!importan
                 <button type="submit" class="create-submit-btn create-submit-btn-active" style="flex:1;">
                   Save Changes
                 </button>
-                <a href="{% url 'supplier_delete' supplier.supplier_id %}"
-                   class="od-btn-cancel"
-                   style="flex:1;text-align:center;display:flex;align-items:center;
-                          justify-content:center;text-decoration:none;">
+                <button type="button" onclick="openDeleteModal()"
+                        class="od-btn-cancel"
+                        style="flex:1;height:44px;border-radius:14px;border:none;cursor:pointer;height:55px;">
                   Delete
-                </a>
+                </button>
               </div>
             </form>
           </div>
@@ -205,7 +205,7 @@ body { max-width:100%!important; width:100%!important; padding-bottom:0!importan
                 </div>
                 <div class="sup-tx-stat">
                   <span class="sup-tx-stat-label">Quantity</span>
-                  <span class="sup-tx-stat-val">{{ tx.quantity|floatformat:1 }} kg</span>
+                  <span class="sup-tx-stat-val">{{ tx.quantity|floatformat:2 }} kg</span>
                 </div>
                 <div class="sup-tx-stat">
                   <span class="sup-tx-stat-label">Total</span>
@@ -233,7 +233,40 @@ body { max-width:100%!important; width:100%!important; padding-bottom:0!importan
   </div>
 </div>
 
+<!-- Delete Supplier Modal -->
+<div class="inq-modal-overlay" id="deleteSupplierModal" style="display:none;"
+     onclick="closeDeleteModal()">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Delete Supplier</span>
+      <button class="inq-modal-x" onclick="closeDeleteModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="padding:12px 0 0;">
+      <p style="font-size:1em;margin-bottom:1rem;">
+        Delete <b>{{ supplier.supplier_name }}</b>? This cannot be undone.
+      </p>
+      <form method="post" action="{% url 'supplier_delete' supplier.supplier_id %}">
+        {% csrf_token %}
+        <div class="inq-modal-actions" style="gap:10px;">
+          <button type="submit" class="inq-action-btn inq-btn-red">Yes, Delete</button>
+          <button type="button" class="inq-action-btn inq-btn-yellow"
+                  onclick="closeDeleteModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
+function openDeleteModal()  { document.getElementById('deleteSupplierModal').style.display = 'flex'; }
+function closeDeleteModal() { document.getElementById('deleteSupplierModal').style.display = 'none'; }
+ 
 function toggleSupplierDetails() {
   const body    = document.getElementById('supplierDetailsBody');
   const chevron = document.getElementById('supplierChevron');
