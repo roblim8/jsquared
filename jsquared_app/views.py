@@ -20,6 +20,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from collections import defaultdict
 
 from .models import (
     FixedMenuItem,
@@ -543,6 +544,7 @@ def sales_report(request):
             "description": order.customer_name or "Customer order",
             "date": timezone.localtime(order.created_at),
             "amount": float(order.total_amount or 0),
+            "payment_method": order.payment_method or "—", 
         })
 
     for tx in supplier_transactions:
@@ -556,9 +558,18 @@ def sales_report(request):
             "description": f"{supplier_name} - {item_label}",
             "date": timezone.make_aware(datetime.combine(tx.transaction_date, datetime.min.time())),
             "amount": float(tx.transaction_amount or 0),
+            "payment_method": tx.payment_status or "—",  # ← shows Paid/Unpaid/etc for supplier rows
         })
 
     transactions = sorted(transactions, key=lambda x: x["date"], reverse=True)
+
+    payment_breakdown = defaultdict(float)
+
+    for order in orders:
+        method = order.payment_method or 'Cash'
+        payment_breakdown[method] += float(order.total_amount or 0)
+
+    payment_breakdown = sorted(payment_breakdown.items(), key=lambda x: x[0])
 
     return render(request, "jsquared_app/sales_report.html", {
         "orders": orders,
@@ -569,6 +580,7 @@ def sales_report(request):
         "total_revenue": total_revenue,
         "total_expenses": total_expenses,
         "net_cash_flow": net_cash_flow,
+        "payment_breakdown": payment_breakdown,
     })
 
 

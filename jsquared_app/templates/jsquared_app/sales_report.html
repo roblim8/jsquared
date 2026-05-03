@@ -1,5 +1,6 @@
 {% extends "jsquared_app/base.html" %}
 {% block bottom_nav %}{% endblock %}
+{% load humanize %}
 {% block content %}
 
 <!-- Back -->
@@ -14,15 +15,17 @@
   </a>
 </div>
 
-<div class="page-header"><h1 class="page-title">Sales Report</h1></div>
+<div class="page-header">
+  <h1 class="page-title">Sales Report</h1>
+</div>
 
 <div class="container py-4">
   <form method="get" class="row g-2 mb-3 align-items-end">
-    <div class="col-md-3">
+    <div class="col-md-6">
       <label class="form-label">Start date</label>
       <input type="date" name="start_date" value="{{ start_date }}" class="form-control" onchange="this.form.submit()">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-6">
       <label class="form-label">End date</label>
       <input type="date" name="end_date" value="{{ end_date }}" class="form-control" onchange="this.form.submit()">
     </div>
@@ -31,25 +34,48 @@
   <div class="row g-3 mb-3">
     <div class="col-md-4">
       <div class="card p-3">
-        <p class="text-muted mb-1">Total Sales</p>
-        <h4 class="mb-0 text-success">₱ {{ total_revenue|floatformat:2 }}</h4>
+        <p class="text-muted mb-1" style="font-size:12px;">Total Sales</p><p></p>
+        <p class="mb-0 text-success fw-bold" style="font-size:15px;white-space:nowrap;">
+          ₱ {{ total_revenue|floatformat:2|intcomma }}
+        </p>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card p-3">
-        <p class="text-muted mb-1">Supplier Expenses</p>
-        <h4 class="mb-0 text-danger">₱ {{ total_expenses|floatformat:2 }}</h4>
+        <p class="text-muted mb-1" style="font-size:12px;">Supplier Expenses</p>
+        <p class="mb-0 text-danger fw-bold" style="font-size:15px;white-space:nowrap;">
+          ₱ {{ total_expenses|floatformat:2|intcomma }}
+        </p>
       </div>
     </div>
     <div class="col-md-4">
       <div class="card p-3">
-        <p class="text-muted mb-1">Net Cash Flow</p>
-        <h4 class="mb-0 {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %}">
-          ₱ {{ net_cash_flow|floatformat:2 }}
-        </h4>
+        <p class="text-muted mb-1" style="font-size:12px;">Net Cash Flow</p>
+        <p class="mb-0 fw-bold {% if net_cash_flow >= 0 %}text-success{% else %}text-danger{% endif %}"
+           style="font-size:15px;white-space:nowrap;">
+          ₱ {{ net_cash_flow|floatformat:2|intcomma }}
+        </p>
       </div>
     </div>
   </div>
+
+  {% if payment_breakdown %}
+  <div class="card p-3 mb-3">
+    <p class="text-muted mb-2" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
+      Sales by Payment Method
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+      {% for method, amount in payment_breakdown %}
+      <div style="flex:1;min-width:80px;background:#f7f7f0;border-radius:10px;padding:10px 12px;">
+        <p style="font-size:11px;color:#888;margin:0 0 3px;">{{ method }}</p>
+        <p class="text-success fw-bold mb-0" style="font-size:14px;white-space:nowrap;">
+          ₱ {{ amount|floatformat:2 }}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card p-3">
     <h4 class="mb-3">Transaction History</h4>
@@ -59,7 +85,8 @@
           <tr style="border-bottom: 1px solid #d9d9d9;">
             <th class="py-3">Date</th>
             <th class="py-3">Reference</th>
-            <th class="py-3 text-end">Amount</th>
+            <th class="py-3">Method</th>
+            <th class="py-3">Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -67,22 +94,31 @@
           <tr>
             <td class="py-3">{{ item.date|date:"m/d/Y" }}</td>
             <td class="py-3">{{ item.label }}</td>
-            <td class="py-3 text-end">
+            <td class="py-3" style="font-size:13px;color:#888;">
+              {% if item.payment_method %}{{ item.payment_method }}{% else %}—{% endif %}
+            </td>
+            <td class="py-3">
               {% if item.type == "sale" %}
-                <span class="text-success fw-semibold">+₱ {{ item.amount|floatformat:2 }}</span>
+                <span class="text-success fw-semibold">+₱ {{ item.amount|floatformat:2|intcomma }}</span>
               {% else %}
-                <span class="text-danger fw-semibold">-₱ {{ item.amount|floatformat:2 }}</span>
+                <span class="text-danger fw-semibold">-₱ {{ item.amount|floatformat:2|intcomma }}</span>
               {% endif %}
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="3" class="text-center py-4">No transactions found for this date range.</td>
+            <td colspan="4" class="text-center py-4">No transactions found for this date range.</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+ 
+  <nav class="bottom-button">
+    <button id="export xlsx" class="cr-full-modal-add-btn" id="fixedModalAddBtn">
+      <a href="{% url 'sales_report_export_xlsx' %}?start_date={{ start_date }}&end_date={{ end_date }}" style="text-decoration: none; color: #000">Generate Sales Report</a>
+    </button>
+  </nav>  
 </div>
 {% endblock %}
