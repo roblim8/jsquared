@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "jsquared_app",
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
