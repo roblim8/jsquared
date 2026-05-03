@@ -121,9 +121,6 @@
 
 <div class="cr-filter-row">
   <div class="search-wrapper" style="flex:1;">
-    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-    </svg>
     <input type="text" class="search-input" id="supplierSearch" placeholder="Search supplier" oninput="filterSuppliers()" value="{{ q }}">
   </div>
   <a href="{% url 'supplier_create' %}" class="create-submit-btn create-submit-btn-active" style="white-space:nowrap;padding:11px 18px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:6px;width:auto;border-radius:14px;">
@@ -188,11 +185,11 @@
 </div>
 
 {% if selection_mode %}
-<div class="create-btn-row" style="margin-top: 2rem;">
+<nav class="bottom-button">
   <button type="button" id="confirmBtn" class="create-submit-btn" disabled onclick="confirmSelection()">
     Confirm
   </button>
-</div>
+</nav>
 
 <form id="confirmForm" method="post" action="{% url 'supplier_list' %}" style="display:none;">
   {% csrf_token %}
