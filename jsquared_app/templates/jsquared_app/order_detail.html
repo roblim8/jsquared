@@ -168,7 +168,6 @@
   <div class="od-col-headers od-col-pending">
     <span></span>
     <span>Item & Style</span>
-    <!-- <span>Style</span> -->
     <span>Price/kg</span>
     <span style="padding:0 30px;">Weight</span>
   </div>
@@ -183,8 +182,8 @@
       <div class="od-item od-item-pending"
            data-item-id="{{ it.order_item_id }}"
            data-is-varied="{% if it.varied_item %}1{% else %}0{% endif %}"
-           data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0 }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
-           data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0 }}{% else %}0{% endif %}">
+           data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0|intcomma }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
+           data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0|intcomma }}{% else %}0{% endif %}">
 
         <button type="button" class="od-remove-btn"
                 data-delete-url="{% url 'order_item_delete' order.order_id it.order_item_id %}"
@@ -209,14 +208,6 @@
           </p>
         </div>
 
-        <!-- Item Image 
-        <div class="od-style-img">
-          {% if it.varied_item and it.varied_item.meat.meat_image %}
-            <img src="{{ it.varied_item.meat.meat_image.url }}" alt="">
-          {% endif %}
-        </div>
-        -->
-
         {% if it.fixed_item %}
           <div class="od-item-price-wrap">
             <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0|intcomma }}</p>
@@ -237,7 +228,7 @@
 
         {% elif it.varied_item %}
           <div class="od-item-price-wrap">
-            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:0|intcomma }}</p>
+            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:1|intcomma }}</p>
             <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0|intcomma }}</p>
           </div>
 
@@ -251,7 +242,7 @@
               step="any"
               inputmode="decimal"
               placeholder="1"
-              oninput="recalculatePendingTotal()"
+              readonly
             >
             <span class="od-weight-unit">kg</span>
           </div>
@@ -266,7 +257,7 @@
   <hr class="od-divider">
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:0|intcomma }}</span>
+    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
 
 </div>
@@ -433,7 +424,7 @@
   <div class="od-modal" onclick="event.stopPropagation()">
     <p class="od-modal-title">Supplier Info</p>
     <p class="od-modal-body" id="supplierModalBody"></p>
-    <a id="changeSupplierBtn" href="#"
+    <a id="changeSupplierBtn" href="{{ supplier_list }}"
        class="card-btn btn-yellow" style="width:100%;display:block;text-align:center;margin-bottom:8px;">
       Change supplier
     </a>
