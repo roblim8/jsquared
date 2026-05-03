@@ -1790,6 +1790,10 @@ a { /* makes links look like buttons */
   display: flex;
   align-items: center;
   justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .od-item-info { min-width: 0; }

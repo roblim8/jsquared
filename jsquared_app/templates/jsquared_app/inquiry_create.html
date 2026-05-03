@@ -30,20 +30,13 @@
   {% endfor %}
 {% endif %}
 
-<!-- Category dropdown + search icon -->
-<div class="cr-filter-row" style="margin-top: 1.2rem;">
-  <input type="text" class="search-input w-100" id="searchInput" placeholder="Search seafood" oninput="filterCards()">
+<!-- Search bar -->
+<div class="search-wrapper" style="width:90%;box-sizing:border-box;margin: 1rem 1rem;">
+  <input type="text" name="q" id="searchInput" class="search-input"
+         style="width:100%;"
+         value="{{ q }}" placeholder="Search meat" oninput="filterBySearch()">
 </div>
 
-<div id="searchBarWrap" style="display:none; padding: 0 1.25rem 0.75rem;">
-  <div class="search-wrapper">
-    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-    <input type="text" class="search-input w-100" id="searchInput"
-           placeholder="Search food" oninput="filterBySearch()">
-  </div>
-</div>
 
 <!-- Meat checklist as cards -->
 <form method="post" id="createInquiryForm">
@@ -75,12 +68,12 @@
     {% endfor %}
   </div>
 
-  <div class="create-btn-row">
+  <nav class="bottom-button">
     <button type="button" id="createBtn" class="create-submit-btn" disabled
             onclick="openConfirmModal()">
       Create Inquiry
     </button>
-  </div>
+  </nav>
 </form>
 
 <!-- Confirmation modal -->

@@ -1,4 +1,3 @@
-
 {% extends "jsquared_app/base.html" %}
 {% load static %}
 {% block bottom_nav %}{% endblock %}
@@ -186,12 +185,15 @@
            data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0 }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
            data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0 }}{% else %}0{% endif %}">
 
-        <a href="{% url 'order_item_delete' order.order_id it.order_item_id %}" class="od-remove-btn">
+        <button type="button" class="od-remove-btn"
+                data-delete-url="{% url 'order_item_delete' order.order_id it.order_item_id %}"
+                data-item-name="{% if it.fixed_item %}{{ it.fixed_item.item_name|escapejs }}{% elif it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
+                onclick="openRemoveItemModal(this)">
           <svg width="22" height="22" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="11" fill="#FF383C"/>
             <line x1="7" y1="12" x2="17" y2="12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
-        </a>
+        </button>
 
         <div class="od-item-info">
           <p class="od-item-name">
@@ -268,15 +270,14 @@
 
 </div>
 
-<div class="od-actions">
-  <a href="{% url 'order_delete' order.order_id %}" style="margin:0;">
-    <button type="submit" class="od-btn-cancel">Delete order</button>
-  </a>
-  <form method="post" action="{% url 'order_accept' order.order_id %}" style="margin:0;">
+<nav class="bottom-button" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+  <button type="button" class="od-btn-cancel" style="flex:1;" onclick="openDeleteOrderModal()">Delete order</button>
+  <form method="post" action="{% url 'order_accept' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
-    <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()" style="border: none; font-weight: bold;">Accept order</button>
+    <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()"
+            style="width:100%;border:none;font-weight:bold;">Accept order</button>
   </form>
-</div>
+</nav>
 
 <!-- ══════════════════════════════════════
      PREPARING MODE 
@@ -360,16 +361,15 @@
 
       <button class="od-supplier-pill" type="button"
               data-item-id="{{ it.order_item_id }}"
-              data-item-name="{% if it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
-              data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
-              data-requires-supplier="{% if it.varied_item and not it.is_effective_byom %}1{% else %}0{% endif %}"
-              data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
+              data-item-name="{% if it.fixed_item %}{{ it.fixed_item.item_name|escapejs }}{% elif it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
+              data-supplier-name="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_name|escapejs }}{% endif %}"
+              data-supplier-contact="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.contact_person|default:''|escapejs }}{% endif %}"
+              data-supplier-phone="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.phone_number|escapejs }}{% endif %}"
+              data-supplier-address="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_address|escapejs }}{% endif %}"
               onclick="openSupplierModal(this)"
-              {% if not it.varied_item or it.is_effective_byom %}disabled{% endif %}>
-        {% if it.fixed_item or it.is_effective_byom %}
-          None
-        {% elif it.supplier %}
-          {{ it.supplier.supplier_name }}
+              {% if not it.varied_item %}disabled{% endif %}>
+        {% if it.varied_item and it.varied_item.supplier %}
+          {{ it.varied_item.supplier.supplier_name }}
         {% else %}
           Select
         {% endif %}
@@ -389,21 +389,20 @@
 
 </div>
 
-<div class="od-actions">
-  <form method="post" action="{% url 'order_cancel' order.order_id %}" style="margin:0;">
+<nav class="bottom-button" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+  <button type="button" class="od-btn-cancel" style="flex:1;"
+          onclick="openCancelOrderModal()">Cancel order</button>
+  <form method="post" action="{% url 'order_serve' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
-    <button type="submit" class="od-btn-cancel">Cancel order</button>
+    <button class="od-btn-complete" id="completeBtn" disabled type="submit"
+            style="width:100%;">Complete order</button>
   </form>
-  <form method="post" action="{% url 'order_serve' order.order_id %}" style="margin:0;">
-    {% csrf_token %}
-    <button class="od-btn-complete" id="completeBtn" disabled type="submit">Complete order</button>
-  </form>
-</div>
+</nav>
 
 <!-- Supplier modal -->
 <div class="od-modal-overlay" id="supplierModal" style="display:none;" onclick="closeSupplierModal()">
   <div class="od-modal" onclick="event.stopPropagation()">
-    <p class="od-modal-title">Supplier</p>
+    <p class="od-modal-title">Supplier Info</p>
     <p class="od-modal-body" id="supplierModalBody"></p>
     <a id="changeSupplierBtn" href="#"
        class="card-btn btn-yellow" style="width:100%;display:block;text-align:center;margin-bottom:8px;">
@@ -475,6 +474,78 @@
 
 {% endif %}
 
+<!-- Delete Order Modal -->
+<div class="inq-modal-overlay" id="deleteOrderModal" style="display:none;" onclick="closeDeleteOrderModal()">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Delete Order</span>
+      <button class="inq-modal-x" onclick="closeDeleteOrderModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="padding:12px 0 0;">
+      <p style="font-size:1.1em;margin-bottom:1rem;">Are you sure you want to delete Order #<b>{{ order.order_id }}</b>? This cannot be undone.</p>
+      <form method="post" action="{% url 'order_delete' order.order_id %}">
+        {% csrf_token %}
+        <div class="inq-modal-actions" style="gap:10px;">
+          <button type="submit" class="inq-action-btn inq-btn-red">Yes, Delete</button>
+          <button type="button" class="inq-action-btn inq-btn-yellow" onclick="closeDeleteOrderModal()">Go Back</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Item Modal -->
+<div class="inq-modal-overlay" id="removeItemModal" style="display:none;" onclick="closeRemoveItemModal()">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Remove Item</span>
+      <button class="inq-modal-x" onclick="closeRemoveItemModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="padding:12px 0 0;">
+      <p style="font-size:1.1em;margin-bottom:1rem;">Remove <b id="removeItemName"></b> from this order?</p>
+      <form id="removeItemForm" method="post" action="#">
+        {% csrf_token %}
+        <div class="inq-modal-actions" style="gap:10px;">
+          <button type="submit" class="inq-action-btn inq-btn-red">Yes, Remove</button>
+          <button type="button" class="inq-action-btn inq-btn-yellow" onclick="closeRemoveItemModal()">Go Back</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Order Modal -->
+<div class="inq-modal-overlay" id="cancelOrderModal" style="display:none;" onclick="closeCancelOrderModal()">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Cancel Order</span>
+      <button class="inq-modal-x" onclick="closeCancelOrderModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div style="padding:12px 0 0;">
+      <p style="font-size:1.1em;margin-bottom:1rem;">Are you sure you want to cancel Order #<b>{{ order.order_id }}</b>?</p>
+      <form method="post" action="{% url 'order_cancel' order.order_id %}">
+        {% csrf_token %}
+        <div class="inq-modal-actions" style="gap:10px;">
+          <button type="submit" class="inq-action-btn inq-btn-red">Yes, Cancel</button>
+          <button type="button" class="inq-action-btn inq-btn-yellow" onclick="closeCancelOrderModal()">Go Back</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 
 function toggleCheck(btn) {
@@ -489,8 +560,9 @@ function toggleCheck(btn) {
   // Enable/disable supplier button logic
   const supplierBtn = item.querySelector('.od-supplier-pill');
   if (supplierBtn) {
-    const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
-    supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+    // Only enable if checked and is a varied_item
+    const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
+    supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
   }
   updateCompleteBtn();
   saveCheckedState();
@@ -518,10 +590,11 @@ function restoreCheckedState() {
         empty.style.display = 'none';
         filled.style.display = '';
       }
+      // Enable supplier button if checked and is varied_item, else disable
       const supplierBtn = item.querySelector('.od-supplier-pill');
       if (supplierBtn) {
-        const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
-        supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+        const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
+        supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
       }
     }
   });
@@ -532,15 +605,8 @@ function updateCompleteBtn() {
   const btn = document.getElementById('completeBtn');
   if (!btn || !items.length) return;
   const allChecked = [...items].every(i => i.dataset.checked === '1');
-  const allRequiredSuppliersAssigned = [...items].every(i => {
-    const supplierBtn = i.querySelector('.od-supplier-pill');
-    if (!supplierBtn || supplierBtn.dataset.requiresSupplier !== '1') return true;
-    const currentLabel = (supplierBtn.textContent || '').trim().toLowerCase();
-    return currentLabel && currentLabel !== 'select';
-  });
-  const canComplete = allChecked && allRequiredSuppliersAssigned;
-  btn.disabled = !canComplete;
-  btn.classList.toggle('od-btn-complete-ready', canComplete);
+  btn.disabled = !allChecked;
+  btn.classList.toggle('od-btn-complete-ready', allChecked);
 }
 
 function toggleAddForm() {
@@ -616,14 +682,19 @@ function recalculatePendingTotal() {
 function openSupplierModal(btn) {
   const itemId = btn.dataset.itemId;
   const supplierName = btn.dataset.supplierName || '';
-  if (btn.dataset.isByom === '1') { return; }
 
   if (supplierName) {
-    document.getElementById('supplierModalBody').innerHTML = '<strong>' + supplierName + '</strong>';
+    const contact = btn.dataset.supplierContact || '';
+    const phone   = btn.dataset.supplierPhone   || '';
+    const address = btn.dataset.supplierAddress || '';
+    let html = '<strong>' + supplierName + '</strong><br>';
+    if (contact) html += 'Contact: ' + contact + '<br>';
+    if (phone)   html += 'Phone: '   + phone   + '<br>';
+    if (address) html += 'Address: ' + address;
+    document.getElementById('supplierModalBody').innerHTML = html;
 
-    const baseUrl = document.getElementById('supplierListUrl').dataset.url;
     document.getElementById('changeSupplierBtn').href =
-      baseUrl + '?order_item_id=' + itemId + '&return_url=' +
+      '/suppliers/?order_item_id=' + itemId + '&return_url=' +
       encodeURIComponent(window.location.pathname);
 
     document.getElementById('supplierModal').style.display = 'flex';
@@ -644,17 +715,40 @@ function closeSupplierModal() {
   document.getElementById('supplierModal').style.display = 'none';
 }
 
+function openRemoveItemModal(btn) {
+  const url  = btn.dataset.deleteUrl;
+  const name = btn.dataset.itemName || 'this item';
+  document.getElementById('removeItemName').textContent = name;
+  document.getElementById('removeItemForm').action = url;
+  document.getElementById('removeItemModal').style.display = 'flex';
+}
+function closeRemoveItemModal() {
+  document.getElementById('removeItemModal').style.display = 'none';
+}
+function openDeleteOrderModal() {
+  document.getElementById('deleteOrderModal').style.display = 'flex';
+}
+function closeDeleteOrderModal() {
+  document.getElementById('deleteOrderModal').style.display = 'none';
+}
+function openCancelOrderModal() {
+  document.getElementById('cancelOrderModal').style.display = 'flex';
+}
+function closeCancelOrderModal() {
+  document.getElementById('cancelOrderModal').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   recalculatePendingTotal();
   restoreCheckedState();
+  // On page load, enable supplier buttons only for checked varied_items
   document.querySelectorAll('.od-item-preparing').forEach(item => {
     const supplierBtn = item.querySelector('.od-supplier-pill');
     if (supplierBtn) {
-      const requiresSupplier = supplierBtn.dataset.requiresSupplier === '1';
-      supplierBtn.disabled = !(item.dataset.checked === '1' && requiresSupplier);
+      const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
+      supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
     }
   });
-  updateCompleteBtn();
 });
 </script>
 

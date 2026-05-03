@@ -63,9 +63,6 @@
 
   <div id="searchBarWrap" style="display:none;padding:0 1.25rem 0.75rem;">
     <div class="search-wrapper">
-      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
       <input type="text" class="search-input w-100" id="searchInput"
              placeholder="Search food" oninput="filterBySearch()">
     </div>
@@ -187,11 +184,11 @@
     {% endif %}
   </div>
 
-  <div class="create-btn-row">
+  <nav class="bottom-button">
     <button type="button" id="viewOrderBtn" class="create-submit-btn" disabled onclick="showSummary()">
       View Order
     </button>
-  </div>
+  </nav>
 
 </div>
 
@@ -222,7 +219,9 @@
         <span class="sum-total-label">Total Amount</span>
         <span class="sum-total-val" id="totalVal">₱ 0.00</span>
       </div>
-      <button class="create-submit-btn mt-3 w-100" type="submit" id="placeOrderBtn">Place Order</button>
+      <nav class="bottom-button">
+        <button class="create-submit-btn create-submit-btn-active w-100" type="submit" id="placeOrderBtn">Place Order</button>
+      </nav>
     </form>
     <form id="orderForm" method="post" action="{% url 'order_create' %}" style="display:none;">
       {% csrf_token %}
@@ -577,6 +576,12 @@ function updateViewOrderBtn() {
   btn.classList.toggle('create-submit-btn-active', cartItems.length > 0);
 }
 
+function updatePlaceOrderBtn() {
+  const btn = document.getElementById('placeOrderBtn');
+  btn.disabled = cartItems.length === 0;
+  btn.classList.toggle('create-submit-btn-active', cartItems.length > 0);
+}
+
 function showSummary() {
   document.getElementById('createView').style.display = 'none';
   document.getElementById('summaryView').style.display = '';
@@ -678,6 +683,8 @@ function renderSummary() {
 
   document.getElementById('subtotalVal').textContent = '₱ ' + total.toFixed(2);
   document.getElementById('totalVal').textContent = '₱ ' + total.toFixed(2);
+
+  updatePlaceOrderBtn();
 }
 
 function toggleWeightInput(idx, key, type) {
