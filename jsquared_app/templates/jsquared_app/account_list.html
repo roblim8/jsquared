@@ -1,74 +1,132 @@
 {% extends "jsquared_app/base.html" %}
-{% block bottom_nav %}{% endblock %}
 {% load static %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<!-- Back -->
-<div class="detail-topbar">
-  <a href="{% url 'admin_console' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
-</div>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}
+.acc-card-link { display:flex;align-items:center;gap:12px;padding:12px;background:#f7f7f0;
+  border-radius:12px;text-decoration:none;border:1.5px solid transparent;transition:border-color 0.15s; }
+.acc-card-link:hover { border-color:var(--accent); }
+</style>
 
-<div class="page-header">
-  <h1 class="page-title">Accounts</h1>
-  <a href="{% url 'account_create' %}" class="add-btn">+ Create</a>
-</div>
+{% include "jsquared_app/admin_navigation.html" with active="accounts" %}
 
-<p style="margin-left: 1rem;">Total accounts: {{ accounts|length }}</p>
+<div class="adm-main">
 
-<div class="list-group" style="margin-top:1rem;">
+  <!-- Topbar -->
+  <div class="adm-topbar">
+    <div class="adm-topbar-greeting">
+      <h2>Registered Accounts</h2>
+      <p>{{ accounts|length }} account{{ accounts|length|pluralize }} total</p>
+    </div>
+    <a href="{% url 'account_create' %}"
+       class="create-submit-btn create-submit-btn-active"
+       style="text-decoration:none;padding:10px 20px;width:auto;display:inline-flex;
+              align-items:center;gap:6px;border-radius:12px;white-space:nowrap;">
+      + Create Account
+    </a>
+  </div>
 
-  <!-- CASHIER -->
-  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Cashier</h5>
-  {% for acc in accounts %}
-    {% if acc.staff_role == "Cashier" %}
-      <a href="{% url 'account_detail' acc.staff_id %}" 
-         class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
-        <div class="flex-grow-1">
-          <div class="fw-semibold">{{ acc.staff_name }}</div>
-          <div class="text-muted">{{ acc.staff_role }}</div>
+  <div class="adm-content">
+    <div class="row g-4">
+
+      <!-- Manager column -->
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:15px;font-weight:800;color:var(--black);margin:0 0 14px;">Manager</p>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for acc in accounts %}{% if acc.staff_role == "Manager" %}
+            <a href="{% url 'account_detail' acc.staff_id %}" class="acc-card-link">
+              <div style="width:36px;height:36px;border-radius:50%;background:#d4edda;
+                          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#2E8B1F" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <p style="font-size:14px;font-weight:700;color:var(--black);margin:0;
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ acc.staff_name }}</p>
+                <p style="font-size:12px;color:var(--muted);margin:0;">Manager</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="#ccc" stroke-width="2" stroke-linecap="round">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+            </a>
+            {% endif %}{% endfor %}
+          </div>
         </div>
-      </a>
-    {% endif %}
-  {% endfor %}
+      </div>
 
-  <!-- MANAGER -->
-  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Manager</h5>
-  {% for acc in accounts %}
-    {% if acc.staff_role == "Manager" %}
-      <a href="{% url 'account_detail' acc.staff_id %}" 
-         class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
-        <div class="flex-grow-1">
-          <div class="fw-semibold">{{ acc.staff_name }}</div>
-          <div class="text-muted">{{ acc.staff_role }}</div>
+      <!-- Cashier column -->
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:15px;font-weight:800;color:var(--black);margin:0 0 14px;">Cashier</p>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for acc in accounts %}{% if acc.staff_role == "Cashier" %}
+            <a href="{% url 'account_detail' acc.staff_id %}" class="acc-card-link">
+              <div style="width:36px;height:36px;border-radius:50%;background:#D6EAF8;
+                          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#2980b9" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <p style="font-size:14px;font-weight:700;color:var(--black);margin:0;
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ acc.staff_name }}</p>
+                <p style="font-size:12px;color:var(--muted);margin:0;">Cashier</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="#ccc" stroke-width="2" stroke-linecap="round">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+            </a>
+            {% endif %}{% endfor %}
+          </div>
         </div>
-      </a>
-    {% endif %}
-  {% endfor %}
+      </div>
 
-  <!-- STAFF -->
-  <h5 style="margin:1rem; font-size:13px; color:#6c757d;">Staff</h5>
-  {% for acc in accounts %}
-    {% if acc.staff_role == "Staff" %}
-      <a href="{% url 'account_detail' acc.staff_id %}" 
-         class="list-group-item list-group-item-action d-flex align-items-center"
-         style="border-radius: 12px; width: 95%; margin: 6px 10px;">
-        <div class="flex-grow-1">
-          <div class="fw-semibold">{{ acc.staff_name }}</div>
-          <div class="text-muted">{{ acc.staff_role }}</div>
+      <!-- Staff column -->
+      <div class="col-12 col-md-4">
+        <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <p style="font-size:15px;font-weight:800;color:var(--black);margin:0 0 14px;">Staff</p>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            {% for acc in accounts %}{% if acc.staff_role == "Staff" %}
+            <a href="{% url 'account_detail' acc.staff_id %}" class="acc-card-link">
+              <div style="width:36px;height:36px;border-radius:50%;background:#f0f0e8;
+                          display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#888" stroke-width="1.5" stroke-linecap="round">
+                  <circle cx="12" cy="8" r="4"/>
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                </svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <p style="font-size:14px;font-weight:700;color:var(--black);margin:0;
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ acc.staff_name }}</p>
+                <p style="font-size:12px;color:var(--muted);margin:0;">Staff</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="#ccc" stroke-width="2" stroke-linecap="round">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+            </a>
+            {% endif %}{% endfor %}
+          </div>
         </div>
-      </a>
-    {% endif %}
-  {% endfor %}
+      </div>
 
+    </div>
+  </div>
 </div>
 
 {% endblock %}

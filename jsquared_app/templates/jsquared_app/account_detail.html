@@ -1,174 +1,186 @@
 {% extends "jsquared_app/base.html" %}
-{% block bottom_nav %}{% endblock %}
 {% load static %}
+{% block bottom_nav %}{% endblock %}
 {% block content %}
 
-<!-- Back -->
-<div class="detail-topbar">
-  <a href="{% url 'account_list' %}" class="back-btn">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/>
-      <polyline points="12,19 5,12 12,5"/>
-    </svg>
-    Back
-  </a>
+<style>
+body { max-width:100%!important; width:100%!important; padding-bottom:0!important; }
+.page-scrollable > div.container {
+  margin-left: 220px;
+  width: 85%;
+}
+</style>
+
+{% include "jsquared_app/admin_navigation.html" with active="accounts" %}
+
+<div class="adm-main">
+
+  <div class="adm-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="{% url 'account_list' %}" class="back-btn"
+         style="background:#f0f0e8;border-radius:10px;padding:8px 14px;
+                display:inline-flex;align-items:center;gap:6px;
+                text-decoration:none;font-size:13px;font-weight:600;color:var(--black);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12,19 5,12 12,5"/>
+        </svg>
+        Back
+      </a>
+      <div>
+        <h2 style="font-size:18px;font-weight:800;color:var(--black);margin:0;">Account Details</h2>
+        <p style="font-size:13px;color:var(--muted);margin:0;">{{ account.staff_name }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="adm-content">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-6 col-lg-5">
+
+        {% if messages %}
+          {% for message in messages %}
+            <div class="alert-toast alert-{{ message.tags }}" style="margin:0 0 1rem;">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+
+        {% if errors %}
+          {% for err in errors %}
+          <div class="adm-error-row" style="margin-bottom:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="#FF383C" stroke-width="1.5" stroke-linecap="round">
+              <polygon points="12,2 2,22 22,22"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>{{ err }}</span>
+          </div>
+          {% endfor %}
+        {% endif %}
+
+        <div style="background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+
+          <form method="post" id="detailForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+
+            <label class="adm-field-label">Staff Name</label>
+            <div class="login-input-wrapper" style="margin-bottom:14px;">
+              <input type="text" name="staff_name" id="fieldStaffName"
+                     class="login-input" placeholder="Full Name"
+                     value="{{ account.staff_name }}" disabled>
+            </div>
+
+            <label class="adm-field-label">Username</label>
+            <div class="login-input-wrapper" style="margin-bottom:14px;">
+              <input type="text" name="username" id="fieldUsername"
+                     class="login-input" placeholder="Username"
+                     value="{{ current_username }}" disabled>
+            </div>
+
+            <label class="adm-field-label">Role</label>
+            <div class="login-input-wrapper" style="margin-bottom:14px;">
+              <select name="role" id="fieldRole" class="login-input" disabled
+                      style="appearance:auto;cursor:pointer;">
+                <option value="">Select Role</option>
+                <option value="Staff"   {% if account.staff_role == "Staff"   %}selected{% endif %}>Staff</option>
+                <option value="Cashier" {% if account.staff_role == "Cashier" %}selected{% endif %}>Cashier</option>
+                <option value="Manager" {% if account.staff_role == "Manager" %}selected{% endif %}>Manager</option>
+              </select>
+            </div>
+
+            <!-- Password view -->
+            <label class="adm-field-label">Password</label>
+            <div class="login-input-wrapper" id="pwViewWrap" style="margin-bottom:14px;">
+              <input type="password" class="login-input"
+                     value="{{ account.staff_password }}" disabled>
+            </div>
+
+            <!-- Password edit -->
+            <div id="pwEditWrap" style="display:none;">
+              <label class="adm-field-label">New Password</label>
+              <div class="login-input-wrapper" style="margin-bottom:14px;">
+                <input type="password" name="new_password" id="fieldNewPw"
+                       class="login-input" placeholder="Leave blank to keep current"
+                       oninput="checkChanges()">
+                <button type="button" class="eye-btn" onclick="togglePw('fieldNewPw','eyeNew')">
+                  <svg id="eyeNew" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+
+              <label class="adm-field-label">Confirm Password</label>
+              <div class="login-input-wrapper" style="margin-bottom:14px;">
+                <input type="password" name="confirm_password" id="fieldConfirmPw"
+                       class="login-input" placeholder="Confirm new password"
+                       oninput="checkChanges()">
+                <button type="button" class="eye-btn" onclick="togglePw('fieldConfirmPw','eyeConfirm')">
+                  <svg id="eyeConfirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div id="pwMismatchErr" class="adm-error-row" style="display:none;margin-bottom:12px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="#FF383C" stroke-width="1.5" stroke-linecap="round">
+                  <polygon points="12,2 2,22 22,22"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                </svg>
+                <span>Passwords do not match</span>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:20px;">
+              <button type="button" onclick="openDeleteModal()"
+                      class="od-btn-cancel" style="flex:1;height:44px;border-radius:14px;">
+                Disable Account
+              </button>
+              <button type="button" id="editBtn" onclick="enableEdit()"
+                      class="create-submit-btn create-submit-btn-active"
+                      style="flex:1;height:44px;">
+                Edit Details
+              </button>
+              <button type="button" id="saveBtn" onclick="submitSave()"
+                      class="create-submit-btn" style="flex:1;height:44px;display:none;" disabled>
+                Save Changes
+              </button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="page-header">
-  <h1 class="page-title">Account Details</h1>
-</div>
-
-{% if errors %}
-<div style="padding: 0 1.25rem;">
-  {% for err in errors %}
-  <div class="adm-error-row" style="margin-bottom:8px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-         stroke="#FF383C" stroke-width="1.5" stroke-linecap="round">
-      <polygon points="12,2 2,22 22,22"/>
-      <line x1="12" y1="9" x2="12" y2="13"/>
-      <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>
-    <span>{{ err }}</span>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-<form method="post" id="detailForm" style="padding: 0 1.25rem;">
-  {% csrf_token %}
-  <input type="hidden" name="action" value="save">
-
-  <!-- Staff Name -->
-  <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">Staff Name</p>
-  <div class="login-input-wrapper">
-    <input type="text" name="staff_name" id="fieldStaffName"
-           class="login-input" placeholder="Full Name"
-           value="{{ account.staff_name }}" disabled>
-  </div>
-
-  <!-- Username -->
-  <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">Username</p>
-  <div class="login-input-wrapper">
-    <input type="text" name="username" id="fieldUsername"
-           class="login-input" placeholder="Username"
-           value="{{ current_username }}" disabled>
-  </div>
-
-  <!-- Role -->
-  <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">Role</p>
-  <div class="login-input-wrapper">
-    <select name="role" id="fieldRole" class="login-input" disabled
-            style="appearance:auto;cursor:pointer;">
-      <option value="">Select Role</option>
-      <option value="Staff"    {% if account.staff_role == "Staff"    %}selected{% endif %}>Staff</option>
-      <option value="Cashier"  {% if account.staff_role == "Cashier"  %}selected{% endif %}>Cashier</option>
-      <option value="Manager"  {% if account.staff_role == "Manager"  %}selected{% endif %}>Manager</option>
-    </select>
-  </div>
-
-  <!-- Password — view mode (masked dots) -->
-  <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">Password</p>
-  <div class="login-input-wrapper" id="pwViewWrap">
-    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-      <rect x="3" y="11" width="18" height="11" rx="2"/>
-      <path d="M7 11V7a5 5 0 0110 0v4"/>
-    </svg>
-    <input type="password" class="login-input"
-           value="{{ account.staff_password }}" disabled>
-  </div>
-
-  <!-- New Password + Confirm — edit mode (hidden until Edit clicked) -->
-  <div id="pwEditWrap" style="display:none;">
-
-    <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">New Password</p>
-    <div class="login-input-wrapper">
-      <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="3" y="11" width="18" height="11" rx="2"/>
-        <path d="M7 11V7a5 5 0 0110 0v4"/>
-      </svg>
-      <input type="password" name="new_password" id="fieldNewPw"
-             class="login-input" placeholder="Leave blank to keep current"
-             oninput="checkChanges()">
-      <button type="button" class="eye-btn" onclick="togglePw('fieldNewPw','eyeNew')">
-        <svg id="eyeNew" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+<!-- Disable Account Modal -->
+<div class="inq-modal-overlay" id="deleteModal" style="display:none;" onclick="closeDeleteModal()">
+  <div class="inq-modal" onclick="event.stopPropagation()">
+    <div class="inq-modal-titlerow">
+      <span class="inq-modal-heading">Disable Account</span>
+      <button class="inq-modal-x" onclick="closeDeleteModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="#999" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>
     </div>
-
-    <p style="font-size:14px;font-weight:600;color:var(--black);margin:1rem 0 6px;">Confirm Password</p>
-    <div class="login-input-wrapper">
-      <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="3" y="11" width="18" height="11" rx="2"/>
-        <path d="M7 11V7a5 5 0 0110 0v4"/>
-      </svg>
-      <input type="password" name="confirm_password" id="fieldConfirmPw"
-             class="login-input" placeholder="Confirm new password"
-             oninput="checkChanges()">
-      <button type="button" class="eye-btn" onclick="togglePw('fieldConfirmPw','eyeConfirm')">
-        <svg id="eyeConfirm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Inline mismatch error -->
-    <div id="pwMismatchErr" class="adm-error-row" style="display:none;margin-top:8px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="#FF383C" stroke-width="1.5" stroke-linecap="round">
-        <polygon points="12,2 2,22 22,22"/>
-        <line x1="12" y1="9" x2="12" y2="13"/>
-      </svg>
-      <span>Passwords do not match</span>
-    </div>
-
-  </div>
-
-  <!-- Action buttons -->
-  <div style="margin-top:1.5rem;display:flex;gap:10px;">
-    <button type="button" onclick="openDeleteModal()"
-            class="od-btn-cancel" style="flex:1;">
-      Disable Account
-    </button>
-
-    <button type="button" id="editBtn" onclick="enableEdit()"
-        class="create-submit-btn create-submit-btn-active"
-        style="flex:1;">
-      Edit Details
-    </button>
-
-    <button type="button" id="saveBtn" onclick="submitSave()"
-        class="create-submit-btn"
-        style="flex:1;display:none;" disabled>
-      Save Changes
-    </button>
-  </div>
-</form>
-
-<!--<!-- DELETE CONFIRMATION MODAL -->
-<div class="od-confirm-overlay" id="deleteModal" style="display:none;">
-  <div class="od-confirm-box">
-    <p class="od-confirm-title">Disable this account?</p>
-    <p class="od-confirm-sub">
-      Account will no longer be accessible but records associated with this account will remain
-    </p>
-
-    <div class="od-confirm-actions">
-      <button type="button" class="od-confirm-no" onclick="closeDeleteModal()">
-        Cancel
-      </button>
-
-      <!--PROPER FORM -->
-      <form method="post" action="" style="margin:0;">
+    <div style="padding:12px 0 0;">
+      <p style="font-size:1em;margin-bottom:1rem;">
+        Disable <b>{{ account.staff_name }}</b>'s account? Records associated with this account will remain.
+      </p>
+      <form method="post" style="margin:0;">
         {% csrf_token %}
         <input type="hidden" name="action" value="delete">
-
-         <button type="submit" class="od-confirm-yes" style="width:100%;">
-      Disable
-    </button>
+        <div class="inq-modal-actions" style="gap:10px;">
+          <button type="submit" class="inq-action-btn inq-btn-red">Yes, Disable</button>
+          <button type="button" class="inq-action-btn inq-btn-yellow" onclick="closeDeleteModal()">Cancel</button>
+        </div>
       </form>
     </div>
   </div>
@@ -177,58 +189,49 @@
 <script>
 const ORIG = {
   staffName: "{{ account.staff_name|escapejs }}",
-  username: "{{ current_username|escapejs }}",
-  role: "{{ account.staff_role|escapejs }}",
+  username:  "{{ current_username|escapejs }}",
+  role:      "{{ account.staff_role|escapejs }}",
 };
 
 function enableEdit() {
-  document.getElementById('fieldStaffName').disabled = false;
-  document.getElementById('fieldUsername').disabled  = false;
-  document.getElementById('fieldRole').disabled      = false;
+  ['fieldStaffName','fieldUsername','fieldRole'].forEach(id => document.getElementById(id).disabled = false);
   document.getElementById('pwViewWrap').style.display = 'none';
   document.getElementById('pwEditWrap').style.display = '';
   document.getElementById('editBtn').style.display    = 'none';
   document.getElementById('saveBtn').style.display    = '';
-
-  document.getElementById('fieldStaffName').addEventListener('input', checkChanges);
-  document.getElementById('fieldUsername').addEventListener('input', checkChanges);
+  ['fieldStaffName','fieldUsername'].forEach(id =>
+    document.getElementById(id).addEventListener('input', checkChanges));
   document.getElementById('fieldRole').addEventListener('change', checkChanges);
   checkChanges();
 }
 
 function checkChanges() {
   const nameChanged = document.getElementById('fieldStaffName').value !== ORIG.staffName;
-  const usernameChanged = document.getElementById('fieldUsername').value !== ORIG.username;
-  const roleChanged = document.getElementById('fieldRole').value !== ORIG.role;
+  const userChanged = document.getElementById('fieldUsername').value  !== ORIG.username;
+  const roleChanged = document.getElementById('fieldRole').value      !== ORIG.role;
+  const newPw       = document.getElementById('fieldNewPw').value;
+  const confirmPw   = document.getElementById('fieldConfirmPw').value;
+  const pwFilled    = newPw.length > 0;
+  const pwMatch     = newPw === confirmPw;
 
-  const newPw = document.getElementById('fieldNewPw').value;
-  const confirmPw = document.getElementById('fieldConfirmPw').value;
-  const pwFilled = newPw.length > 0;
-  const pwMatch = newPw === confirmPw;
+  document.getElementById('pwMismatchErr').style.display =
+    (pwFilled && confirmPw.length > 0 && !pwMatch) ? 'flex' : 'none';
 
-  const mismatch = document.getElementById('pwMismatchErr');
-  mismatch.style.display = (pwFilled && confirmPw.length > 0 && !pwMatch) ? 'flex' : 'none';
-
-  const pwValid = !pwFilled || pwMatch;
-  const hasChanges = (nameChanged || usernameChanged || roleChanged || pwFilled) && pwValid;
-
+  const hasChanges = (nameChanged || userChanged || roleChanged || pwFilled) && (!pwFilled || pwMatch);
   const btn = document.getElementById('saveBtn');
   btn.disabled = !hasChanges;
   btn.classList.toggle('create-submit-btn-active', hasChanges);
 }
 
 function submitSave() {
-  const newPw = document.getElementById('fieldNewPw').value;
+  const newPw    = document.getElementById('fieldNewPw').value;
   const confirmPw = document.getElementById('fieldConfirmPw').value;
-
   if (newPw && newPw !== confirmPw) {
     document.getElementById('pwMismatchErr').style.display = 'flex';
     return;
   }
-
-  document.getElementById('fieldStaffName').disabled = false;
-  document.getElementById('fieldUsername').disabled  = false;
-  document.getElementById('fieldRole').disabled      = false;
+  ['fieldStaffName','fieldUsername','fieldRole'].forEach(id =>
+    document.getElementById(id).disabled = false);
   document.getElementById('detailForm').submit();
 }
 
@@ -244,13 +247,8 @@ function togglePw(inputId, iconId) {
   }
 }
 
-function openDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'flex';
-}
-
-function closeDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'none';
-}
+function openDeleteModal()  { document.getElementById('deleteModal').style.display = 'flex'; }
+function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
 </script>
 
 {% endblock %}
