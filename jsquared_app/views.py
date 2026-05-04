@@ -1452,7 +1452,7 @@ def order_delete(request, order_id: int):
 def inquiry_list(request):
     qs = PriceInquiryRequest.objects.select_related(
         "meat", "requested_by", "accepted_by"
-    ).order_by("-created_at")
+    ).order_by("-requested_at")
 
     return render(
         request,
