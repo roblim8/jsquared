@@ -1515,14 +1515,7 @@ def inquiry_accept(request, inquiry_id: int):
 @staff_login_required
 @require_roles("Staff", "Manager")
 def inquiry_delete(request, inquiry_id: int):
-    staff = _current_staff(request)
     req = get_object_or_404(PriceInquiryRequest, inquiry_id=inquiry_id)
-
-    is_manager = request.session.get(SESSION_STAFF_ROLE) == "Manager"
-    is_owner = req.requested_by_id == staff.staff_id
-
-    if not (is_manager or is_owner):
-        return HttpResponseForbidden("Not allowed.")
 
     if request.method == "POST":
         req.status = "Cancelled"
@@ -1531,7 +1524,6 @@ def inquiry_delete(request, inquiry_id: int):
         return redirect("inquiry_list")
 
     return render(request, "jsquared_app/inquiry_delete.html", {"req": req})
-
 
 @staff_login_required
 @require_roles("Staff", "Manager")
