@@ -1,6 +1,31 @@
 {% extends "jsquared_app/base.html" %}
+{% load static %}
 {% block content %}
-<div class="container mt-3"><form method="get" class="row g-2 mb-3"><div class="col-md-4"><input class="form-control" name="q" value="{{ q }}" placeholder="Search meat item"></div><div class="col-md-2"><select class="form-select" name="status"><option value="">All status</option><option value="Available" {% if status_filter == "Available" %}selected{% endif %}>Available</option><option value="Out of Stock" {% if status_filter == "Out of Stock" %}selected{% endif %}>Out of Stock</option><option value="Discontinued" {% if status_filter == "Discontinued" %}selected{% endif %}>Discontinued</option></select></div><div class="col-md-2"><input class="form-control" type="number" step="0.01" name="min_price" value="{{ min_price }}" placeholder="Min price"></div><div class="col-md-2"><input class="form-control" type="number" step="0.01" name="max_price" value="{{ max_price }}" placeholder="Max price"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">Filter</button></div></form></div>
+
+<div class="container mt-3">
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-4">
+      <input class="form-control" name="q" value="{{ q }}" placeholder="Search meat item">
+    </div>
+    <div class="col-md-2">
+      <select class="form-select" name="status">
+        <option value="">All status</option>
+        <option value="Available" {% if status_filter == "Available" %}selected{% endif %}>Available</option>
+        <option value="Out of Stock" {% if status_filter == "Out of Stock" %}selected{% endif %}>Out of Stock</option>
+        <option value="Discontinued" {% if status_filter == "Discontinued" %}selected{% endif %}>Discontinued</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <input class="form-control" type="number" step="0.01" name="min_price" value="{{ min_price }}" placeholder="Min price">
+    </div>
+    <div class="col-md-2">
+      <input class="form-control" type="number" step="0.01" name="max_price" value="{{ max_price }}" placeholder="Max price">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-primary w-100">Filter</button>
+    </div>
+  </form>
+</div>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h5 class="m-0">Meat Price List</h5>
@@ -10,20 +35,38 @@
 <div class="list-group">
   {% for m in meat %}
     <div class="list-group-item">
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <div class="fw-semibold">{{ m.meat_type }}</div>
-          <div class="text-muted small">
-            Weight: {{ m.weight_min }}–{{ m.weight_max }} kg • Status: {{ m.item_status }}
-            <br/>
-            Current Price: ₱{{ m.current_price|floatformat:2 }} • Updated: {{ m.price_updated_at|date:"M d, Y h:i A" }}
+      <div class="d-flex justify-content-between align-items-center">
+
+        <!-- LEFT: IMAGE + INFO -->
+        <div class="d-flex align-items-center gap-3">
+
+          <!-- IMAGE -->
+          <div style="width:60px;height:60px;border-radius:10px;overflow:hidden;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
+            {% if m.meat_image %}
+              <img src="{{ m.meat_image.url }}" alt="{{ m.meat_type }}" style="width:100%;height:100%;object-fit:cover;">
+            {% else %}
+              <img src="{% static 'jsquared_app/icons/default_meat.png' %}" alt="No image" style="width:30px;height:30px;opacity:0.5;">
+            {% endif %}
           </div>
+
+          <!-- TEXT -->
+          <div>
+            <div class="fw-semibold">{{ m.meat_type }}</div>
+            <div class="text-muted small">
+              Weight: {{ m.weight_min }}–{{ m.weight_max }} kg • Status: {{ m.item_status }}
+              <br/>
+              Current Price: ₱{{ m.current_price|floatformat:2 }} • Updated: {{ m.price_updated_at|date:"M d, Y h:i A" }}
+            </div>
+          </div>
+
         </div>
 
+        <!-- RIGHT: ACTIONS -->
         <div class="d-flex gap-2">
           <a class="btn btn-outline-primary btn-sm" href="{% url 'meat_price_edit' m.meat_id %}">Edit</a>
           <a class="btn btn-outline-danger btn-sm" href="{% url 'meat_price_delete' m.meat_id %}">Delete</a>
         </div>
+
       </div>
     </div>
   {% empty %}

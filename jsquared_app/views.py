@@ -1016,6 +1016,7 @@ def order_create(request):
             "is_byom": v.is_byom,
             "weight_min": v.meat.weight_min,
             "weight_max": v.meat.weight_max,
+            "image_url": v.meat.meat_image.url if v.meat.meat_image else "",
         }
         for v in varied_items
     ])

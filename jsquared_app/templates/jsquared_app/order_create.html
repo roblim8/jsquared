@@ -3,6 +3,13 @@
 {% block bottom_nav %}{% endblock %}
 {% load humanize %}
 {% block content %}
+<style>
+.sum-item-thumb::before,
+.sum-item-thumb::after {
+  display: none !important;
+  content: none !important;
+}
+</style>
 
 <!-- ── Top bar ── -->
 <div class="detail-topbar" style="display:flex;align-items:center;gap:10px;">
@@ -227,8 +234,6 @@
         <span class="sum-subtotal-val" id="vatVal">₱ 0.00</span>
       </div>
 
-      
-
       <p class="cr-validation" id="summaryError" style="display:none;margin-top:8px;">Please complete all required fields.</p>
 
       <div class="sum-total-row mt-3">
@@ -384,7 +389,7 @@
 
 <script>
 const cartItems = [];
-let currentMeatId = null, currentMeatName = '', currentMeatBasePrice = 0, currentWeight = 1;
+let currentMeatId = null, currentMeatName = '', currentMeatBasePrice = 0, currentWeight = 1, currentMeatImg = '';
 let currentFixedId = null, currentFixedName = '', currentFixedPrice = 0, currentFixedQty = 1;
 let editingKey = null;
 
@@ -453,6 +458,7 @@ function openVariedModal(meatId, name, imgUrl, desc, basePrice, preStyleId, preW
   currentMeatName = name;
   currentMeatBasePrice = Number(basePrice || 0);
   currentWeight = preWeight || 1;
+  currentMeatImg = imgUrl || '';
   editingKey = null;
 
   document.getElementById('variedModalName').textContent = name;
@@ -474,6 +480,8 @@ function openVariedModal(meatId, name, imgUrl, desc, basePrice, preStyleId, preW
     const existing = cartItems.find(i => i.meatId === meatId && i.styleId === preStyleId);
     preIsByom = existing ? !!existing.is_byom : false;
     editingKey = existing ? existing.key : null;
+    currentMeatImg = existing && existing.img ? existing.img : currentMeatImg;
+    imgEl.style.backgroundImage = currentMeatImg ? `url(${currentMeatImg})` : '';
   }
 
   byomCheckbox.checked = preIsByom;
@@ -572,7 +580,8 @@ function addVariedItem() {
     price: totalPerKg,
     weight: currentWeight,
     qty: currentWeight,
-    is_byom: isByom
+    is_byom: isByom,
+    img: currentMeatImg
   });
 
   const qtyEl = document.getElementById('qty-meat-' + currentMeatId);
@@ -711,7 +720,7 @@ function renderSummary() {
 
     if (item.type === 'varied') {
       row.innerHTML = `
-        <div class="sum-item-thumb"></div>
+        <div class="sum-item-thumb" style="background:url('${item.img || ""}') center/cover no-repeat !important;"></div>
         <div class="sum-item-main">
           <div class="sum-item-top">
             <div>
@@ -852,7 +861,7 @@ function updateItemQty(key, val, type) {
 function editVariedItem(key) {
   const item = cartItems.find(i => i.key === key);
   if (!item) return;
-  openVariedModal(item.meatId, item.name, '', '', item.basePrice, item.styleId, item.weight, true);
+  openVariedModal(item.meatId, item.name, item.img || '', '', item.basePrice, item.styleId, item.weight, true);
 }
 
 function editFixedItem(key) {
