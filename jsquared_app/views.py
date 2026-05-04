@@ -1450,11 +1450,9 @@ def order_delete(request, order_id: int):
 @staff_login_required
 @require_roles("Staff", "Manager")
 def inquiry_list(request):
-    staff = _current_staff(request)
-    qs = PriceInquiryRequest.objects.select_related("meat", "requested_by", "accepted_by")
-
-    if request.session.get(SESSION_STAFF_ROLE) != "Manager":
-        qs = qs.filter(requested_by=staff)
+    qs = PriceInquiryRequest.objects.select_related(
+        "meat", "requested_by", "accepted_by"
+    ).order_by("-created_at")
 
     return render(
         request,
@@ -1468,7 +1466,6 @@ def inquiry_list(request):
             "is_manager": request.session.get(SESSION_STAFF_ROLE) == "Manager",
         },
     )
-
 
 @staff_login_required
 @require_roles("Staff", "Manager")
@@ -2005,7 +2002,7 @@ def _parse_transaction_form(request, supplier, transaction=None):
 
 
 @staff_login_required
-@require_roles("Manager")
+@require_roles("Staff", "Manager")
 def supplier_list(request):
     q = (request.GET.get("q") or "").strip()
     suppliers = (
@@ -2078,7 +2075,7 @@ def supplier_list(request):
     })
 
 @staff_login_required
-@require_roles("Manager")
+@require_roles("Staff", "Manager")
 def supplier_create(request):
     if request.method == "POST":
         errors = []
