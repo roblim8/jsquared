@@ -207,29 +207,10 @@
 
       <div class="mb-3">
         <label class="form-label">Order Type</label>
-        <!-- Add this in summaryView, before the Place Order button -->
-        <div style="display:flex;gap:10px;margin-bottom:16px;">
-          <label id="dineInLabel"
-                style="flex:1;display:flex;align-items:center;justify-content:center;
-                        gap:8px;padding:12px;border-radius:14px;cursor:pointer;
-                        border:2px solid var(--accent);background:#d4edda;
-                        font-weight:700;font-size:14px;color:var(--black);">
-            <input type="radio" name="order_type_select" value="0"
-                  onchange="document.getElementById('formOrderType').value='0'; updateOrderTypeUI()"
-                  checked style="display:none;">
-            🍽️ Dine-in
-          </label>
-          <label id="takeoutLabel"
-                style="flex:1;display:flex;align-items:center;justify-content:center;
-                        gap:8px;padding:12px;border-radius:14px;cursor:pointer;
-                        border:2px solid #eee;background:#fff;
-                        font-weight:700;font-size:14px;color:var(--black);">
-            <input type="radio" name="order_type_select" value="1"
-                  onchange="document.getElementById('formOrderType').value='1'; updateOrderTypeUI()"
-                  style="display:none;">
-            🥡 Takeout
-          </label>
-        </div>
+        <select class="form-select" id="orderTypeSelect">
+          <option value="0">Dine-in</option>
+          <option value="1">Takeout</option>
+        </select>
       </div>
 
       <div id="summaryItems"></div>
@@ -928,14 +909,6 @@ function placeOrder() {
   document.getElementById('placeOrderBtn').textContent = 'Placing Order...';
 
   document.getElementById('orderForm').submit();
-}
-
-function updateOrderTypeUI() {
-  const val = document.getElementById('formOrderType').value;
-  document.getElementById('dineInLabel').style.borderColor  = val === '0' ? 'var(--accent)' : '#eee';
-  document.getElementById('dineInLabel').style.background   = val === '0' ? '#d4edda' : '#fff';
-  document.getElementById('takeoutLabel').style.borderColor = val === '1' ? 'var(--accent)' : '#eee';
-  document.getElementById('takeoutLabel').style.background  = val === '1' ? '#d4edda' : '#fff';
 }
 </script>
 

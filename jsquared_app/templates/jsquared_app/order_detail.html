@@ -1,6 +1,7 @@
 {% extends "jsquared_app/base.html" %}
 {% load static %}
 {% block bottom_nav %}{% endblock %}
+{% load humanize %}
 {% block content %}
 
 <style>
@@ -93,6 +94,130 @@
   cursor: not-allowed !important;
   border: 1px solid #ccc !important;
 }
+
+.od-item-preparing[data-item-type="varied"] .od-supplier-pill:disabled {
+  opacity: 0.6;
+}
+
+  /* FINAL alignment fix for order detail rows */
+  .od-col-preparing,
+  .od-item-preparing[data-item-type="varied"] {
+    display: grid !important;
+    grid-template-columns: 26px minmax(98px, 1fr) 68px 78px !important;
+    align-items: center !important;
+    column-gap: 6px !important;
+  }
+
+  .od-col-preparing {
+    padding: 0 !important;
+    margin-bottom: 6px !important;
+  }
+
+  .od-col-preparing span {
+    font-size: 10.5px !important;
+    color: var(--muted) !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .od-col-preparing span:nth-child(1),
+  .od-item-preparing[data-item-type="varied"] .od-check {
+    justify-self: center !important;
+  }
+
+  .od-col-preparing span:nth-child(2),
+  .od-item-preparing[data-item-type="varied"] .od-item-info {
+    justify-self: stretch !important;
+  }
+
+  .od-col-preparing span:nth-child(3),
+  .od-item-preparing[data-item-type="varied"] .od-supplier-pill {
+    justify-self: center !important;
+    text-align: center !important;
+  }
+
+  .od-col-preparing span:nth-child(4),
+  .od-item-preparing[data-item-type="varied"] .od-item-price {
+    justify-self: end !important;
+    text-align: right !important;
+  }
+
+  .od-item-preparing[data-item-type="varied"] .od-supplier-pill {
+    width: 66px !important;
+    min-width: 66px !important;
+    max-width: 66px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .od-item-preparing[data-item-type="varied"] .od-item-price {
+    width: 78px !important;
+    margin: 0 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  .od-item-info {
+    min-width: 0 !important;
+  }
+
+  .od-item-name,
+  .od-item-sub {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-left: 0 !important;
+  }
+
+  #fixedItems .od-item-preparing,
+  #fixedItems + .od-item-preparing {
+    display: grid !important;
+    grid-template-columns: 26px minmax(0, 1fr) 78px !important;
+    align-items: center !important;
+    column-gap: 6px !important;
+  }
+
+  #fixedItems .od-item-price {
+    justify-self: end !important;
+    text-align: right !important;
+    width: 78px !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  #fixedItems .od-item-name,
+  #fixedItems .od-item-sub {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .od-check {
+    justify-self: center !important;
+    width: 22px !important;
+    height: 22px !important;
+    padding: 0 !important;
+  }
+
+  .od-total-row,
+  .od-subtotal-row {
+    align-items: center;
+  }
+
+  .od-actions .od-btn-cancel,
+  .od-actions .od-btn-accept-match,
+  .od-actions .od-btn-complete {
+    width: 100% !important;
+    height: 64px !important;
+  }
+
 </style>
 
 <!-- Back -->
@@ -134,12 +259,6 @@
       <span class="od-meta-label">Placed on</span>
       <span class="od-meta-value">{{ order.created_at|date:"h:i A" }}</span>
     </div>
-    <div style="text-align:right;">
-      <span class="od-meta-label">Order Type</span>
-      <span class="od-meta-value">
-        {% if order.order_type %}Takeout{% else %}Dine-in{% endif %}
-      </span>
-    </div>
   </div>
 
   <!-- Add item form -->
@@ -173,7 +292,6 @@
   <div class="od-col-headers od-col-pending">
     <span></span>
     <span>Item & Style</span>
-    <!-- <span>Style</span> -->
     <span>Price/kg</span>
     <span style="padding:0 30px;">Weight</span>
   </div>
@@ -191,12 +309,15 @@
            data-unit-price="{% if it.varied_item %}{{ it.order_unit_price|default:0 }}{% elif it.fixed_item %}{{ it.fixed_item.fixed_price|default:0 }}{% else %}0{% endif %}"
            data-cooking-charge="{% if it.varied_item %}{{ it.cooking_charge|default:0 }}{% else %}0{% endif %}">
 
-        <a href="{% url 'order_item_delete' order.order_id it.order_item_id %}" class="od-remove-btn">
+        <button type="button" class="od-remove-btn"
+                data-delete-url="{% url 'order_item_delete' order.order_id it.order_item_id %}"
+                data-item-name="{% if it.fixed_item %}{{ it.fixed_item.item_name|escapejs }}{% elif it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
+                onclick="openRemoveItemModal(this)">
           <svg width="22" height="22" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="11" fill="#FF383C"/>
             <line x1="7" y1="12" x2="17" y2="12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
           </svg>
-        </a>
+        </button>
 
         <div class="od-item-info">
           <p class="od-item-name">
@@ -211,17 +332,9 @@
           </p>
         </div>
 
-        <!-- Item Image 
-        <div class="od-style-img">
-          {% if it.varied_item and it.varied_item.meat.meat_image %}
-            <img src="{{ it.varied_item.meat.meat_image.url }}" alt="">
-          {% endif %}
-        </div>
-        -->
-
         {% if it.fixed_item %}
           <div class="od-item-price-wrap">
-            <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0 }}</p>
+            <p class="od-item-price js-row-price">₱ {{ it.fixed_item.fixed_price|floatformat:0|intcomma }}</p>
           </div>
 
           <div class="od-weight-input-wrap" style="background:#efefef; margin-left: 30px;">
@@ -239,8 +352,8 @@
 
         {% elif it.varied_item %}
           <div class="od-item-price-wrap">
-            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:0 }}</p>
-            <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0 }}</p>
+            <p class="od-item-price">₱ {{ it.order_unit_price|floatformat:1|intcomma }}</p>
+            <p class="od-item-sub" style="margin-top:2px;">₱ {{ it.cooking_charge|floatformat:0|intcomma }}</p>
           </div>
 
           <div class="od-weight-input-wrap" style="margin-left: 30px;">
@@ -253,7 +366,7 @@
               step="any"
               inputmode="decimal"
               placeholder="1"
-              oninput="recalculatePendingTotal()"
+              readonly
             >
             <span class="od-weight-unit">kg</span>
           </div>
@@ -268,20 +381,19 @@
   <hr class="od-divider">
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value" id="pendingTotalValue" style="color: green">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
 
 </div>
 
-<div class="od-actions">
-  <a href="{% url 'order_delete' order.order_id %}" style="margin:0;">
-    <button type="submit" class="od-btn-cancel">Delete order</button>
-  </a>
-  <form method="post" action="{% url 'order_accept' order.order_id %}" style="margin:0;">
+<nav class="bottom-button od-actions" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+  <button type="button" class="od-btn-cancel" style="flex:1;" onclick="openDeleteOrderModal()">Delete order</button>
+  <form method="post" action="{% url 'order_accept' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
-    <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()" style="border: none; font-weight: bold;">Accept order</button>
+    <button class="od-btn-accept-match btn-yellow" onclick="acceptOrder()"
+            style="width:100%;height:64px;border:none;font-weight:bold;">Accept order</button>
   </form>
-</div>
+</nav>
 
 <!-- ══════════════════════════════════════
      PREPARING MODE 
@@ -322,27 +434,24 @@
       <span class="od-meta-label">Placed on</span>
       <span class="od-meta-value">{{ order.created_at|date:"h:i A" }}</span>
     </div>
-    <div style="text-align:right;">
-      <span class="od-meta-label">Order</span>
-      <span class="od-meta-value">
-        {% if order.order_type %}Takeout{% else %}Dine-in{% endif %}
-      </span>
-    </div>
-    
   </div>
 
-  <!-- Column headers -->
+  <!-- ── Varied items (meats) ── -->
+  {% with varied_items=order.items.all|dictsort:"order_item_id" %}
+  {% if order.items.filter %}
+  {% endif %}
+
+  <p class="section-label" style="margin:0.75rem 0 0.5rem;">Meats</p>
   <div class="od-col-headers od-col-preparing">
     <span></span>
     <span>Item &amp; Amount</span>
-    <span>Total Price</span>
     <span>Supplier</span>
+    <span>Total Price</span>
   </div>
-
-  <!-- Items with checklist -->
   <div class="od-items" id="orderItems">
-    {% for it in order.items.all %}
-    <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0">
+    {% for it in order.items.all %}{% if it.varied_item %}
+    <div class="od-item od-item-preparing" data-item-id="{{ it.order_item_id }}" data-checked="0"
+         data-subtotal="{{ it.subtotal|floatformat:2 }}" data-item-type="varied">
       <button class="od-check" onclick="toggleCheck(this)" type="button">
         <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"/>
@@ -353,71 +462,96 @@
                     fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
-
       <div class="od-item-info">
-        <p class="od-item-name">
-          {{ it.order_quantity }}kg
-          {% if it.fixed_item %}{{ it.fixed_item.item_name }}
-          {% elif it.varied_item %}{{ it.varied_item.meat.meat_type }}
-          {% endif %}
-        </p>
-        <p class="od-item-sub">
-          {% if it.fixed_item %}{{ it.fixed_item.item_category|default:"" }}
-          {% elif it.varied_item %}{{ it.varied_item.cooking_style.style_name }}
-          {% endif %}
-        </p>
+        <p class="od-item-name">{{ it.order_quantity }}kg {{ it.varied_item.meat.meat_type }}</p>
+        <p class="od-item-sub">{{ it.varied_item.cooking_style.style_name }}</p>
       </div>
+      <button class="od-supplier-pill"
+        data-url="{% url 'supplier_list' %}"
+        data-item-id="{{ it.order_item_id }}"
+        data-supplier-id="{% if it.supplier %}{{ it.supplier.supplier_id }}{% endif %}"
 
-      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
+        data-item-name="{{ it.varied_item.meat.meat_type|escapejs }}"
+        data-supplier-name="{% if it.supplier %}{{ it.supplier.supplier_name|escapejs }}{% endif %}"
 
-      <button class="od-supplier-pill" type="button"
-              data-item-id="{{ it.order_item_id }}"
-              data-item-name="{% if it.fixed_item %}{{ it.fixed_item.item_name|escapejs }}{% elif it.varied_item %}{{ it.varied_item.meat.meat_type|escapejs }}{% endif %}"
-              data-supplier-name="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_name|escapejs }}{% endif %}"
-              data-supplier-contact="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.contact_person|default:''|escapejs }}{% endif %}"
-              data-supplier-phone="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.phone_number|escapejs }}{% endif %}"
-              data-supplier-address="{% if it.varied_item and it.varied_item.supplier %}{{ it.varied_item.supplier.supplier_address|escapejs }}{% endif %}"
-              onclick="openSupplierModal(this)"
-              {% if not it.varied_item %}disabled{% endif %}>
-        {% if it.varied_item and it.varied_item.supplier %}
-          {{ it.varied_item.supplier.supplier_name }}
-        {% else %}
-          Select
-        {% endif %}
-        <span id="supplierListUrl" data-url="{% url 'supplier_list' %}"></span>
+        data-supplier-phone="{% if it.supplier %}{{ it.supplier.phone_number|escapejs }}{% endif %}"
+        data-supplier-address="{% if it.supplier %}{{ it.supplier.supplier_address|escapejs }}{% endif %}"
+
+        data-requires-supplier="1"
+        data-is-byom="{% if it.is_effective_byom %}1{% else %}0{% endif %}"
+
+        onclick="openSupplierModal(this)"
+        {% if it.is_effective_byom %}disabled{% endif %}
+      >
+        {% if it.is_effective_byom %}BYOM
+        {% elif it.supplier %}{{ it.supplier.supplier_name }}
+        {% else %}Select{% endif %}
       </button>
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:2|intcomma }}</p>
     </div>
-    {% empty %}
-    <p class="od-empty">No items on this order.</p>
-    {% endfor %}
+    {% endif %}{% endfor %}
   </div>
+
+  <!-- ── Fixed items ── -->
+  <p class="section-label" style="margin:1rem 0 0.5rem;">Fixed Items</p>
+  <div class="od-col-headers" 
+      style="display:grid;grid-template-columns:26px minmax(0, 1fr) 78px;gap:6px;padding:0 4px;margin-bottom:4px;align-items:center;">
+    <span></span>
+    <span style="font-size:11px;color:var(--muted);">Item &amp; Amount</span>
+    <span style="font-size:11px;color:var(--muted);text-align:right;">Total Price</span>
+  </div>
+  <div class="od-items" id="fixedItems">
+    {% for it in order.items.all %}{% if it.fixed_item %}
+    <div class="od-item od-item-preparing"
+     data-item-id="{{ it.order_item_id }}"
+     data-checked="0"
+     data-subtotal="{{ it.subtotal|floatformat:2 }}"
+     data-item-type="fixed"
+     style="display:grid;grid-template-columns:26px minmax(0, 1fr) 78px;align-items:center;gap:6px;">
+  
+    <button class="od-check" onclick="toggleCheck(this)" type="button"> <svg class="od-check-empty" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"> <circle cx="12" cy="12" r="10"/> </svg> <svg class="od-check-filled" viewBox="0 0 24 24" style="display:none;"> <circle cx="12" cy="12" r="10" fill="#2E8B1F"/> <polyline points="8,12 11,15 16,9" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/> </svg> </button>
+
+    <div class="od-item-info" style="min-width:0;">
+      <p class="od-item-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ it.order_quantity|floatformat:0 }}x {{ it.fixed_item.item_name }}
+      </p>
+      <p class="od-item-sub">{{ it.fixed_item.item_category|default:"" }}</p>
+    </div>
+
+    <p class="od-item-price" style="text-align:right;">
+      ₱ {{ it.subtotal|floatformat:2|intcomma }}
+    </p>
+  </div>
+    {% endif %}{% endfor %}
+  </div>
+  {% endwith %}
 
   <hr class="od-divider">
 
   <!-- Subtotals -->
-  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+  <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:4px;">
     <span style="font-size:13px;color:var(--muted);">Meats subtotal</span>
-    <span style="font-size:13px;color:var(--muted);" id="variedSubtotal">₱ —</span>
+    <span style="font-size:13px;color:var(--muted);" id="variedSubtotal">₱ {{ meats_subtotal|floatformat:2|intcomma }}</span>
   </div>
-  <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+  <div class="od-subtotal-row" style="display:flex;justify-content:space-between;margin-bottom:10px;">
     <span style="font-size:13px;color:var(--muted);">Fixed items subtotal</span>
-    <span style="font-size:13px;color:var(--muted);" id="fixedSubtotal">₱ —</span>
+    <span style="font-size:13px;color:var(--muted);" id="fixedSubtotal">₱ {{ other_items_subtotal|floatformat:2|intcomma }}</span>
   </div>
 
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value" style="color:green">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value" style="color:green">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
 
 </div>
 
-<nav class="bottom-button" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
+<nav class="bottom-button od-actions" style="display:flex;gap:12px;padding:12px 1.25rem 1.5rem;">
   <button type="button" class="od-btn-cancel" style="flex:1;"
           onclick="openCancelOrderModal()">Cancel order</button>
   <form method="post" action="{% url 'order_serve' order.order_id %}" style="flex:1;margin:0;">
     {% csrf_token %}
     <button class="od-btn-complete" id="completeBtn" disabled type="submit"
-            style="width:100%;">Complete order</button>
+            style="width:100%;height:64px;">Complete order</button>
   </form>
 </nav>
 
@@ -426,7 +560,7 @@
   <div class="od-modal" onclick="event.stopPropagation()">
     <p class="od-modal-title">Supplier Info</p>
     <p class="od-modal-body" id="supplierModalBody"></p>
-    <a id="changeSupplierBtn" href="#"
+    <a id="changeSupplierBtn" href="{% url 'supplier_list' %}"
        class="card-btn btn-yellow" style="width:100%;display:block;text-align:center;margin-bottom:8px;">
       Change supplier
     </a>
@@ -478,7 +612,7 @@
           {% if it.varied_item %}{{ it.varied_item.cooking_style.style_name }}{% endif %}
         </p>
       </div>
-      <p class="od-item-price">₱ {{ it.subtotal|floatformat:0 }}</p>
+      <p class="od-item-price">₱ {{ it.subtotal|floatformat:2|intcomma }}</p>
       <div></div>
     </div>
     {% endfor %}
@@ -486,7 +620,7 @@
   <hr class="od-divider">
   <div class="od-total-row">
     <span class="od-total-label">Total amount</span>
-    <span class="od-total-value">₱ {{ order.total_amount|floatformat:0 }}</span>
+    <span class="od-total-value">₱ {{ order.total_amount|floatformat:2|intcomma }}</span>
   </div>
   <div style="margin-top:12px;">
     <p><strong>Payment status:</strong> {{ order.payment_status }}</p>
@@ -572,20 +706,26 @@
 
 function toggleCheck(btn) {
   const item = btn.closest('.od-item-preparing');
+  const supplierBtn = item.querySelector('.od-supplier-pill');
+  const isByom = supplierBtn?.dataset.isByom === '1';
+
+  if (isByom) return;
+
   const empty  = btn.querySelector('.od-check-empty');
   const filled = btn.querySelector('.od-check-filled');
   const checked = item.dataset.checked === '1';
+
   item.dataset.checked = checked ? '0' : '1';
+
   empty.style.display  = checked ? '' : 'none';
   filled.style.display = checked ? 'none' : '';
+
   item.classList.toggle('od-item-checked', !checked);
-  // Enable/disable supplier button logic
-  const supplierBtn = item.querySelector('.od-supplier-pill');
+
   if (supplierBtn) {
-    // Only enable if checked and is a varied_item
-    const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-    supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+    supplierBtn.disabled = item.dataset.checked !== '1';
   }
+
   updateCompleteBtn();
   saveCheckedState();
 }
@@ -602,21 +742,43 @@ function saveCheckedState() {
 function restoreCheckedState() {
   const checkedIds = JSON.parse(sessionStorage.getItem('checkedOrderItems') || '[]');
   const items = document.querySelectorAll('.od-item-preparing');
+
   items.forEach(item => {
-    if (checkedIds.includes(item.dataset.itemId)) {
+    const supplierBtn = item.querySelector('.od-supplier-pill');
+    const isBYOM = supplierBtn?.dataset.isByom === '1';
+
+    const empty  = item.querySelector('.od-check-empty');
+    const filled = item.querySelector('.od-check-filled');
+
+    // ✅ 1. BYOM = ALWAYS checked + locked
+    if (isBYOM) {
       item.dataset.checked = '1';
       item.classList.add('od-item-checked');
+
       const empty = item.querySelector('.od-check-empty');
       const filled = item.querySelector('.od-check-filled');
+
       if (empty && filled) {
         empty.style.display = 'none';
         filled.style.display = '';
       }
-      // Enable supplier button if checked and is varied_item, else disable
-      const supplierBtn = item.querySelector('.od-supplier-pill');
+
+      supplierBtn.disabled = true;
+      return;
+    }
+
+    // ✅ 2. Restore normal checked state
+    if (checkedIds.includes(item.dataset.itemId)) {
+      item.dataset.checked = '1';
+      item.classList.add('od-item-checked');
+
+      if (empty && filled) {
+        empty.style.display = 'none';
+        filled.style.display = '';
+      }
+
       if (supplierBtn) {
-        const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-        supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+        supplierBtn.disabled = false;
       }
     }
   });
@@ -625,10 +787,35 @@ function restoreCheckedState() {
 function updateCompleteBtn() {
   const items = document.querySelectorAll('.od-item-preparing');
   const btn = document.getElementById('completeBtn');
+
+  // Compute subtotals by item type
+  let variedTotal = 0, fixedTotal = 0;
+  items.forEach(i => {
+    const sub = parseFloat(i.dataset.subtotal || 0);
+    if (i.dataset.itemType === 'varied') variedTotal += sub;
+    else fixedTotal += sub;
+  });
+  const variedEl = document.getElementById('variedSubtotal');
+  const fixedEl  = document.getElementById('fixedSubtotal');
+  if (variedEl) variedEl.textContent = '₱ ' + variedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  if (fixedEl)  fixedEl.textContent  = '₱ ' + fixedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
   if (!btn || !items.length) return;
   const allChecked = [...items].every(i => i.dataset.checked === '1');
-  btn.disabled = !allChecked;
-  btn.classList.toggle('od-btn-complete-ready', allChecked);
+  const allRequiredSuppliersAssigned = [...items].every(i => {
+    const supplierBtn = i.querySelector('.od-supplier-pill');
+    if (!supplierBtn) return true;
+
+    if (supplierBtn.dataset.isByom === '1') return true;
+
+    if (supplierBtn.dataset.requiresSupplier !== '1') return true;
+
+    const label = (supplierBtn.textContent || '').trim().toLowerCase();
+    return label && label !== 'select';
+  });
+  const canComplete = allChecked && allRequiredSuppliersAssigned;
+  btn.disabled = !canComplete;
+  btn.classList.toggle('od-btn-complete-ready', canComplete);
 }
 
 function toggleAddForm() {
@@ -662,8 +849,8 @@ function acceptOrder() {
 })();
 
 function formatPeso(value) {
-  const rounded = Math.round(Number(value) || 0);
-  return "₱ " + rounded;
+  const amount = Number(value) || 0;
+  return "₱ " + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
 function recalculatePendingTotal() {
@@ -702,34 +889,35 @@ function recalculatePendingTotal() {
 }
 
 function openSupplierModal(btn) {
-  const itemId = btn.dataset.itemId;
-  const supplierName = btn.dataset.supplierName || '';
+  const itemId        = btn.dataset.itemId;
+  const supplierName  = btn.dataset.supplierName || '';
+  const phone         = btn.dataset.supplierPhone || '';
+  const address       = btn.dataset.supplierAddress || '';
+  const baseUrl       = btn.dataset.url;
+  saveCheckedState();
 
   if (supplierName) {
-    const contact = btn.dataset.supplierContact || '';
-    const phone   = btn.dataset.supplierPhone   || '';
-    const address = btn.dataset.supplierAddress || '';
-    let html = '<strong>' + supplierName + '</strong><br>';
-    if (contact) html += 'Contact: ' + contact + '<br>';
-    if (phone)   html += 'Phone: '   + phone   + '<br>';
-    if (address) html += 'Address: ' + address;
+    let html = `<strong>${supplierName}</strong><br>`;
+
+    if (phone) {
+      html += `Phone: ${phone}<br>`;
+    }
+
+    if (address) {
+      html += `Location: ${address}`;
+    }
+
     document.getElementById('supplierModalBody').innerHTML = html;
 
     document.getElementById('changeSupplierBtn').href =
-      '/suppliers/?order_item_id=' + itemId + '&return_url=' +
-      encodeURIComponent(window.location.pathname);
+      `${baseUrl}?order_item_id=${itemId}&return_url=${encodeURIComponent(window.location.pathname)}&selected_supplier_id=${btn.dataset.supplierId}`;
 
     document.getElementById('supplierModal').style.display = 'flex';
+
   } else {
-    const baseUrl = document.getElementById('supplierListUrl').dataset.url;
-
-    document.getElementById('changeSupplierBtn').href =
-      baseUrl + '?order_item_id=' + itemId + '&return_url=' +
-      encodeURIComponent(window.location.pathname);
-
+    // No supplier yet → go directly to list
     window.location.href =
-      baseUrl + '?order_item_id=' + itemId +
-      '&return_url=' + encodeURIComponent(window.location.pathname);
+      `${baseUrl}?order_item_id=${itemId}&return_url=${encodeURIComponent(window.location.pathname)}`;
   }
 }
 
@@ -744,25 +932,42 @@ function openRemoveItemModal(btn) {
   document.getElementById('removeItemForm').action = url;
   document.getElementById('removeItemModal').style.display = 'flex';
 }
-function closeRemoveItemModal() { document.getElementById('removeItemModal').style.display = 'none'; }
-function openDeleteOrderModal()  { document.getElementById('deleteOrderModal').style.display = 'flex'; }
-function closeDeleteOrderModal() { document.getElementById('deleteOrderModal').style.display = 'none'; }
-function openCancelOrderModal()  { document.getElementById('cancelOrderModal').style.display = 'flex'; }
-function closeCancelOrderModal() { document.getElementById('cancelOrderModal').style.display = 'none'; }
+function closeRemoveItemModal() {
+  document.getElementById('removeItemModal').style.display = 'none';
+}
+function openDeleteOrderModal() {
+  document.getElementById('deleteOrderModal').style.display = 'flex';
+}
+function closeDeleteOrderModal() {
+  document.getElementById('deleteOrderModal').style.display = 'none';
+}
+function openCancelOrderModal() {
+  document.getElementById('cancelOrderModal').style.display = 'flex';
+}
+function closeCancelOrderModal() {
+  document.getElementById('cancelOrderModal').style.display = 'none';
+}
 
 document.addEventListener('DOMContentLoaded', function () {
   recalculatePendingTotal();
   restoreCheckedState();
-  // On page load, enable supplier buttons only for checked varied_items
+
   document.querySelectorAll('.od-item-preparing').forEach(item => {
     const supplierBtn = item.querySelector('.od-supplier-pill');
-    if (supplierBtn) {
-      const isVaried = !!supplierBtn.dataset.supplierName || supplierBtn.getAttribute('data-item-name') !== '';
-      supplierBtn.disabled = !(item.dataset.checked === '1' && isVaried);
+    if (!supplierBtn) return;
+
+    const isByom = supplierBtn.dataset.isByom === '1';
+
+    if (isByom) {
+      // 🔒 ALWAYS disabled
+      supplierBtn.disabled = true;
+      return;
     }
+
+    // ✅ Only enable if checked
+    supplierBtn.disabled = item.dataset.checked !== '1';
   });
 });
-updateOrderTypeUI();
 </script>
 
 {% endblock %}

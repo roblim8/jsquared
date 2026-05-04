@@ -259,6 +259,8 @@ class AuditLog(models.Model):
     object_repr = models.CharField(max_length=200, blank=True, null=True)
     details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
+    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
+
     class Meta:
         db_table = "AUDIT_LOG"
         ordering = ["-created_at", "-audit_log_id"]
@@ -405,7 +407,7 @@ class Order(models.Model):
     )
 
     created_at = models.DateTimeField(default=timezone.now)
-    order_type = models.BooleanField(default=False)  
+    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
 
     applied_discount = models.IntegerField(blank=True, null=True)
     total_amount = models.FloatField(default=0)
