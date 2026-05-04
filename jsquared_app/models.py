@@ -459,90 +459,102 @@ class Order(models.Model):
         return min(total, max(int(self.diner_count or 1), 1))
 
     def compute_discount_breakdown(self) -> dict:
-        gross = self.gross_amount()
-        meat_total = self.meat_base_total()
-        cooking_total = self.cooking_charge_total()
-        fixed_total = self.fixed_items_total()
-        discountable = self.discountable_base()
+    gross = self.gross_amount()
+    meat_total = self.meat_base_total()
+    cooking_total = self.cooking_charge_total()
+    fixed_total = self.fixed_items_total()
+    discountable = self.discountable_base()
 
-        breakdown = {
-            "gross_total": round(gross, 2),
-            "meat_charge_total": round(meat_total, 2),
-            "cooking_charge_total": round(cooking_total, 2),
-            "fixed_items_total": round(fixed_total, 2),
-            "discountable_base": round(discountable, 2),
-            "eligible_amount": 0.0,
-            "vatable_sales": 0.0,
-            "vat_exempt_amount": 0.0,
-            "discount_20_amount": 0.0,
-            "discount_total": 0.0,
-            "final_total": round(gross, 2),
-            "pwd_count": max(int(self.pwd_count or 0), 0),
-            "senior_count": max(int(self.senior_count or 0), 0),
-            "eligible_people_total": self.total_special_eligible(),
-            "applied_discount_percent": 0.0,
-        }
+    breakdown = {
+        "gross_total": round(gross, 2),
+        "meat_charge_total": round(meat_total, 2),
+        "cooking_charge_total": round(cooking_total, 2),
+        "fixed_items_total": round(fixed_total, 2),
+        "discountable_base": round(discountable, 2),
+        "eligible_amount": 0.0,
+        "vatable_sales": 0.0,
+        "vat_exempt_amount": 0.0,
+        "discount_20_amount": 0.0,
+        "discount_total": 0.0,
+        "final_total": round(gross, 2),
+        "pwd_count": max(int(self.pwd_count or 0), 0),
+        "senior_count": max(int(self.senior_count or 0), 0),
+        "eligible_people_total": self.total_special_eligible(),
+        "applied_discount_percent": 0.0,
+    }
 
-        if not self.discount_id:
-            return breakdown
-
-        discount_type = self.discount.discount_type
-        discount_value = float(self.discount.discount_value)
-
-        if discount_type in ["PWD", "Senior Citizen"]:
-            diners = max(int(self.diner_count or 1), 1)
-            eligible_people = self.total_special_eligible()
-
-            eligible = (discountable / diners) * eligible_people if discountable else 0.0
-            eligible = round(max(0.0, min(eligible, discountable)), 2)
-
-            discount_20 = eligible * (discount_value / 100.0)
-            discount_total = discount_20
-            final_total = max(gross - discount_total, 0)
-
-            breakdown.update(
-                {
-                    "eligible_amount": round(eligible, 2),
-                    "vatable_sales": 0.0,
-                    "vat_exempt_amount": 0.0,
-                    "discount_20_amount": round(discount_20, 2),
-                    "discount_total": round(discount_total, 2),
-                    "final_total": round(final_total, 2),
-                    "applied_discount_percent": discount_value,
-                }
-            )
-
-        elif discount_type == "Suki":
-            actual_percent = (
-                float(self.suki_discount_percent)
-                if self.suki_discount_percent is not None
-                else discount_value
-            )
-            actual_percent = max(actual_percent, 0.0)
-
-            discount_total = discountable * (actual_percent / 100.0)
-
-            breakdown.update(
-                {
-                    "eligible_amount": round(discountable, 2),
-                    "discount_total": round(discount_total, 2),
-                    "final_total": round(max(gross - discount_total, 0), 2),
-                    "applied_discount_percent": round(actual_percent, 2),
-                }
-            )
-
-        else:
-            discount_total = discountable * (discount_value / 100.0)
-            breakdown.update(
-                {
-                    "eligible_amount": round(discountable, 2),
-                    "discount_total": round(discount_total, 2),
-                    "final_total": round(max(gross - discount_total, 0), 2),
-                    "applied_discount_percent": discount_value,
-                }
-            )
-
+    if not self.discount_id:
         return breakdown
+
+    discount_type = self.discount.discount_type
+    discount_value = float(self.discount.discount_value)
+
+    # ✅ FIXED PWD / SENIOR LOGIC
+    if discount_type in ["PWD", "Senior Citizen"]:
+        diners = max(int(self.diner_count or 1), 1)
+        eligible_people = self.total_special_eligible()
+
+        eligible = (discountable / diners) * eligible_people if discountable else 0.0
+        eligible = round(max(0.0, min(eligible, discountable)), 2)
+
+        # VAT removal
+        vat_exclusive = eligible / 1.12 if eligible else 0.0
+        vat_exempt = eligible - vat_exclusive
+
+        # 20% discount (applied to FULL eligible amount)
+        discount_20 = eligible * (discount_value / 100.0)
+
+        # TOTAL DISCOUNT = VAT exemption + 20%
+        discount_total = vat_exempt + discount_20
+
+        final_total = max(gross - discount_total, 0)
+
+        breakdown.update(
+            {
+                "eligible_amount": round(eligible, 2),
+                "vatable_sales": round(vat_exclusive, 2),
+                "vat_exempt_amount": round(vat_exempt, 2),
+                "discount_20_amount": round(discount_20, 2),
+                "discount_total": round(discount_total, 2),
+                "final_total": round(final_total, 2),
+                "applied_discount_percent": discount_value,
+            }
+        )
+
+    # SUKI DISCOUNT
+    elif discount_type == "Suki":
+        actual_percent = (
+            float(self.suki_discount_percent)
+            if self.suki_discount_percent is not None
+            else discount_value
+        )
+        actual_percent = max(actual_percent, 0.0)
+
+        discount_total = discountable * (actual_percent / 100.0)
+
+        breakdown.update(
+            {
+                "eligible_amount": round(discountable, 2),
+                "discount_total": round(discount_total, 2),
+                "final_total": round(max(gross - discount_total, 0), 2),
+                "applied_discount_percent": round(actual_percent, 2),
+            }
+        )
+
+    # OTHER DISCOUNTS
+    else:
+        discount_total = discountable * (discount_value / 100.0)
+
+        breakdown.update(
+            {
+                "eligible_amount": round(discountable, 2),
+                "discount_total": round(discount_total, 2),
+                "final_total": round(max(gross - discount_total, 0), 2),
+                "applied_discount_percent": discount_value,
+            }
+        )
+
+    return breakdown
 
     def recompute_total(self) -> None:
         breakdown = self.compute_discount_breakdown()
