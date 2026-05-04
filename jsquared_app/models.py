@@ -259,7 +259,7 @@ class AuditLog(models.Model):
     object_repr = models.CharField(max_length=200, blank=True, null=True)
     details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
-    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
+    order_type = models.BooleanField(default=False)
 
     class Meta:
         db_table = "AUDIT_LOG"
@@ -281,7 +281,6 @@ class VariedMenuItem(models.Model):
         Supplier, on_delete=models.SET_NULL, null=True, blank=True, db_column="supplier_id"
     )
 
-    # item_price = cooking add-on charge for this meat + style combo
     item_price = models.FloatField(default=0)
     is_byom = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -342,6 +341,7 @@ class Discount(models.Model):
 
     def delete(self, *args, **kwargs):
         self.archive()
+
 
 class Staff(models.Model):
     staff_id = models.AutoField(primary_key=True)
@@ -407,25 +407,17 @@ class Order(models.Model):
     )
 
     created_at = models.DateTimeField(default=timezone.now)
-    order_type = models.BooleanField(default=False)  # False = dine-in, True = take-out
+    order_type = models.BooleanField(default=False)
 
     applied_discount = models.IntegerField(blank=True, null=True)
     total_amount = models.FloatField(default=0)
     customer_name = models.CharField(max_length=50, blank=True, null=True)
 
     diner_count = models.IntegerField(default=1)
-
-    # mixed discount support
     pwd_count = models.IntegerField(default=0)
     senior_count = models.IntegerField(default=0)
-
-    # keep this for compatibility with your current forms/views
     eligible_count = models.IntegerField(default=1)
-
-    # kept for compatibility, but not used in current logic
     discount_target_amount = models.FloatField(blank=True, null=True)
-
-    # custom Suki percentage override
     suki_discount_percent = models.FloatField(blank=True, null=True)
 
     class Meta:
@@ -504,17 +496,15 @@ class Order(models.Model):
             eligible = (discountable / diners) * eligible_people if discountable else 0.0
             eligible = round(max(0.0, min(eligible, discountable)), 2)
 
-            vat_exclusive = eligible / 1.12 if eligible else 0.0
-            vat_exempt = eligible - vat_exclusive
-            discount_20 = vat_exclusive * (discount_value / 100.0)
-            discount_total = vat_exempt + discount_20
+            discount_20 = eligible * (discount_value / 100.0)
+            discount_total = discount_20
             final_total = max(gross - discount_total, 0)
 
             breakdown.update(
                 {
                     "eligible_amount": round(eligible, 2),
-                    "vatable_sales": round(vat_exclusive, 2),
-                    "vat_exempt_amount": round(vat_exempt, 2),
+                    "vatable_sales": 0.0,
+                    "vat_exempt_amount": 0.0,
                     "discount_20_amount": round(discount_20, 2),
                     "discount_total": round(discount_total, 2),
                     "final_total": round(final_total, 2),
@@ -584,7 +574,6 @@ class OrderItem(models.Model):
     )
 
     order_quantity = models.FloatField(default=1)
-
     order_unit_price = models.FloatField(default=0)
     cooking_charge = models.FloatField(default=0)
     subtotal = models.FloatField(default=0)
