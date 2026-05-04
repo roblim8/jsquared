@@ -242,7 +242,7 @@ function openPendingModal(id, name, time, requester, price, imgUrl, acceptedBy) 
   const base = document.getElementById('updatePriceBase').dataset.url;
   const updateUrl = base.replace('/0/', '/' + id + '/');
   document.getElementById('pUpdateBtn').onclick = () => { window.location.href = updateUrl; };
-  document.getElementById('pUpdateBtn').style.display = isManager ? '' : 'none';
+  document.getElementById('pUpdateBtn').style.display = '';
 
   document.getElementById('pendingModal').style.display = 'flex';
 }
