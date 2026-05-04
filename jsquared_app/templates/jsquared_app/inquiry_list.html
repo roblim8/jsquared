@@ -220,7 +220,7 @@ function openQueuedModal(id, name, time, requester, price, imgUrl) {
   document.getElementById('qAcceptBtn').onclick = () => submitForm('form-accept-' + id);
 
   // Hide accept if not manager
-  document.getElementById('qAcceptBtn').style.display = isManager ? '' : 'none';
+  document.getElementById('qAcceptBtn').style.display = '';
 
   document.getElementById('queuedModal').style.display = 'flex';
 }
