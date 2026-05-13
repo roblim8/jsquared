@@ -266,7 +266,7 @@ table {
           <td>{{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
-          <td>Less: VAT exemption</td>
+          <td>Less: SC/PWD VAT exempt</td>
           <td>{{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
@@ -284,6 +284,7 @@ table {
         </tr>
         {% endif %}
 
+        {% if order.discount %}
           {% if order.discount.discount_type == "Suki" %}
           <tr class="receipt-discount-row">
             <td>Suki rate</td>
@@ -291,7 +292,7 @@ table {
           </tr>
           {% else %}
           <tr class="receipt-discount-row">
-            <td>Less:20% SC/PWD discount</td>
+            <td>Less: 20% SC/PWD discount</td>
             <td>{{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
           </tr>
           {% endif %}
@@ -304,13 +305,14 @@ table {
       </tbody>
     </table>
 
-  <div class="od-total-row" style="margin-top:18px; padding-top:12px; border-top:1px solid #d7d7d1;">
-    <span class="od-total-label" style="font-size:20px;">Total Amount</span>
-    <span class="od-total-value" style="font-size:20px; color:#3e9b08; font-weight:800;">₱ {{ discount_breakdown.final_total|floatformat:2|intcomma }}</span>
-  </div>
+    <div class="od-total-row" style="margin-top:18px; padding-top:12px; border-top:1px solid #d7d7d1;">
+      <span class="od-total-label" style="font-size:20px;">Total Amount</span>
+      <span class="od-total-value" style="font-size:20px; color:#3e9b08; font-weight:800;">₱ {{ discount_breakdown.final_total|floatformat:2|intcomma }}</span>
+    </div>
 
-  <div class="no-print" style="margin-top:18px; display:flex; justify-content:flex-end;">
-    <button type="button" onclick="window.print()" class="card-btn" style="background:#d8e9f5; color:#222; width: 100%;">Print breakdown</button>
+    <div class="no-print" style="margin-top:18px; display:flex; justify-content:flex-end;">
+      <button type="button" onclick="window.print()" class="card-btn" style="background:#d8e9f5; color:#222; width: 100%;">Print breakdown</button>
+    </div>
   </div>
 </div>
 
