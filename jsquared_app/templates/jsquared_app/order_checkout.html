@@ -266,7 +266,7 @@ table {
           <td>{{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
-          <td>Less: SC/PWD VAT exemption</td>
+          <td>Less: VAT exemption</td>
           <td>{{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
@@ -284,11 +284,6 @@ table {
         </tr>
         {% endif %}
 
-        {% if order.discount %}
-        <tr class="receipt-section-divider">
-          <td colspan="2"><hr></td>
-        </tr>
-
           {% if order.discount.discount_type == "Suki" %}
           <tr class="receipt-discount-row">
             <td>Suki rate</td>
@@ -296,7 +291,7 @@ table {
           </tr>
           {% else %}
           <tr class="receipt-discount-row">
-            <td>20% SC/PWD discount</td>
+            <td>Less:20% SC/PWD discount</td>
             <td>{{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
           </tr>
           {% endif %}
