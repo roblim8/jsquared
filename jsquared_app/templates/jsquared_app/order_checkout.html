@@ -19,12 +19,20 @@ table {
   width: 100%;
   border-spacing: 0 6px;
   border-collapse: separate;
+  font-size: 13px;
 }
 
 .receipt-breakdown-table th,
 .receipt-breakdown-table td {
   padding: 2px 0;
   vertical-align: top;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.receipt-breakdown-table th:first-child,
+.receipt-breakdown-table td:first-child {
+  white-space: nowrap;
 }
 
 .receipt-breakdown-table th:last-child,
@@ -48,6 +56,14 @@ table {
   color: #222;
 }
 
+.receipt-details-box {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.receipt-details-box div {
+  white-space: nowrap;
+}
 </style>
 
 <div class="detail-topbar no-print">
@@ -215,7 +231,7 @@ table {
     <h3 style="margin:0 0 14px 0; font-size:22px;">Receipt Breakdown</h3>
 
     {% if order.discount %}
-    <div style="margin-bottom:14px; padding:12px 14px; background:#fafaf7; border:1px solid #ecece4; border-radius:14px;">
+    <div class="receipt-details-box" style="margin-bottom:14px; padding:12px 14px; background:#fafaf7; border:1px solid #ecece4; border-radius:14px;">
       <div style="font-weight:700; margin-bottom:6px;">Discount details</div>
 
       {% if order.discount.discount_type == "Suki" %}
@@ -292,7 +308,7 @@ table {
           </tr>
           {% else %}
           <tr class="receipt-discount-row">
-            <td>Less: 20% SC/PWD discount</td>
+            <td>Less: 20% SC/PWD</td>
             <td>{{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
           </tr>
           {% endif %}
