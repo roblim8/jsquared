@@ -959,14 +959,18 @@ document.addEventListener('DOMContentLoaded', function () {
     const isByom = supplierBtn.dataset.isByom === '1';
 
     if (isByom) {
-      // 🔒 ALWAYS disabled
+      // 🔒 BYOM does not need supplier and should stay disabled
       supplierBtn.disabled = true;
+      item.dataset.checked = '1';
       return;
     }
 
-    // ✅ Only enable if checked
+    // ✅ Only enable supplier button if checked
     supplierBtn.disabled = item.dataset.checked !== '1';
   });
+
+  // ✅ IMPORTANT: re-check if Complete button should be enabled
+  updateCompleteBtn();
 });
 </script>
 
