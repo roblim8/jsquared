@@ -260,26 +260,29 @@ table {
           <td colspan="2"><hr></td>
         </tr>
 
+        {% if order.discount and order.discount.discount_type != "Suki" %}
         <tr>
-          <td>
-            {% if order.discount %}
-              VAT-exclusive eligible amount
-            {% else %}
-              VATable sales
-            {% endif %}
-          </td>
+          <td>Eligible amount</td>
+          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr>
+          <td>Less VAT exemption</td>
+          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
+        </tr>
+        <tr>
+          <td>VAT-exclusive amount</td>
+          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2|intcomma }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td>VATable sales</td>
           <td id="receipt-vatable-sales">₱ 0.00</td>
         </tr>
         <tr>
-          <td>
-            {% if order.discount %}
-              Less VAT exemption
-            {% else %}
-              VAT (12%)
-            {% endif %}
-          </td>
+          <td>VAT (12%)</td>
           <td id="receipt-vat-amount">₱ 0.00</td>
         </tr>
+        {% endif %}
 
         {% if order.discount %}
         <tr class="receipt-section-divider">
@@ -292,14 +295,6 @@ table {
             <td>{{ discount_breakdown.applied_discount_percent|floatformat:2 }}%</td>
           </tr>
           {% else %}
-          <tr class="receipt-discount-row">
-            <td>Eligible sales amount</td>
-            <td>₱ {{ discount_breakdown.discountable_base|floatformat:2|intcomma }}</td>
-          </tr>
-          <tr class="receipt-discount-row">
-            <td>Eligible diner portion</td>
-            <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
-          </tr>
           <tr class="receipt-discount-row">
             <td>20% Senior/PWD discount</td>
             <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
