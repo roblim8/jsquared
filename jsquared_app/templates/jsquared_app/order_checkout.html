@@ -241,15 +241,15 @@ table {
       <tbody>
         <tr>
           <td>Meat charge</td>
-          <td>₱ {{ discount_breakdown.meat_charge_total|floatformat:2|intcomma }}</td>
+          <td>{{ discount_breakdown.meat_charge_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Cooking charge</td>
-          <td>₱ {{ discount_breakdown.cooking_charge_total|floatformat:2|intcomma }}</td>
+          <td>{{ discount_breakdown.cooking_charge_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>Fixed items</td>
-          <td>₱ {{ discount_breakdown.fixed_items_total|floatformat:2|intcomma }}</td>
+          <td>{{ discount_breakdown.fixed_items_total|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <th>Gross total</th>
@@ -263,24 +263,24 @@ table {
         {% if order.discount and order.discount.discount_type != "Suki" %}
         <tr>
           <td>Eligible amount</td>
-          <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
+          <td>{{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
-          <td>Less VAT exemption</td>
-          <td>₱ {{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
+          <td>Less: SC/PWD VAT exemption</td>
+          <td>{{ discount_breakdown.vat_exempt_amount|floatformat:2|intcomma }}</td>
         </tr>
         <tr>
           <td>VAT-exclusive amount</td>
-          <td>₱ {{ discount_breakdown.vatable_sales|floatformat:2|intcomma }}</td>
+          <td>{{ discount_breakdown.vatable_sales|floatformat:2|intcomma }}</td>
         </tr>
         {% else %}
         <tr>
           <td>VATable sales</td>
-          <td id="receipt-vatable-sales">₱ 0.00</td>
+          <td id="receipt-vatable-sales">0.00</td>
         </tr>
         <tr>
           <td>VAT (12%)</td>
-          <td id="receipt-vat-amount">₱ 0.00</td>
+          <td id="receipt-vat-amount">0.00</td>
         </tr>
         {% endif %}
 
@@ -296,8 +296,8 @@ table {
           </tr>
           {% else %}
           <tr class="receipt-discount-row">
-            <td>20% Senior/PWD discount</td>
-            <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
+            <td>20% SC/PWD discount</td>
+            <td>{{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
           </tr>
           {% endif %}
 
@@ -372,8 +372,8 @@ table {
     return Number(String(raw || "0").replace(/[₱,\s]/g, "")) || 0;
   }
 
-  function formatPeso(amount) {
-    return "₱ " + amount.toLocaleString(undefined, {
+  function formatAmount(amount) {
+    return amount.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
@@ -389,8 +389,8 @@ table {
     const vatableSales = discountableBase / 1.12;
     const vatAmount = discountableBase - vatableSales;
 
-    vatableEl.textContent = formatPeso(vatableSales);
-    vatEl.textContent = formatPeso(vatAmount);
+    vatableEl.textContent = formatAmount(vatableSales);
+    vatEl.textContent = formatAmount(vatAmount);
   }
 
   updateReceiptVatBreakdown();
