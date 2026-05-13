@@ -489,7 +489,6 @@ class Order(models.Model):
         discount_type = self.discount.discount_type
         discount_value = float(self.discount.discount_value)
 
-        # ✅ FIXED PWD / SENIOR LOGIC
         if discount_type in ["PWD", "Senior Citizen"]:
             diners = max(int(self.diner_count or 1), 1)
             eligible_people = self.total_special_eligible()
@@ -497,16 +496,10 @@ class Order(models.Model):
             eligible = (discountable / diners) * eligible_people if discountable else 0.0
             eligible = round(max(0.0, min(eligible, discountable)), 2)
 
-            # VAT removal
             vat_exclusive = eligible / 1.12 if eligible else 0.0
             vat_exempt = eligible - vat_exclusive
-
-            # 20% discount (applied to FULL eligible amount)
-            discount_20 = eligible * (discount_value / 100.0)
-
-            # TOTAL DISCOUNT = VAT exemption + 20%
+            discount_20 = vat_exclusive * (discount_value / 100.0)
             discount_total = vat_exempt + discount_20
-
             final_total = max(gross - discount_total, 0)
 
             breakdown.update(
@@ -521,7 +514,6 @@ class Order(models.Model):
                 }
             )
 
-        # SUKI DISCOUNT
         elif discount_type == "Suki":
             actual_percent = (
                 float(self.suki_discount_percent)
@@ -541,10 +533,8 @@ class Order(models.Model):
                 }
             )
 
-        # OTHER DISCOUNTS
         else:
             discount_total = discountable * (discount_value / 100.0)
-
             breakdown.update(
                 {
                     "eligible_amount": round(discountable, 2),
