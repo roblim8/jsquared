@@ -261,11 +261,23 @@ table {
         </tr>
 
         <tr>
-          <td>VATable sales</td>
+          <td>
+            {% if order.discount %}
+              VAT-exclusive eligible amount
+            {% else %}
+              VATable sales
+            {% endif %}
+          </td>
           <td id="receipt-vatable-sales">₱ 0.00</td>
         </tr>
         <tr>
-          <td>VAT (12%)</td>
+          <td>
+            {% if order.discount %}
+              Less VAT exemption
+            {% else %}
+              VAT (12%)
+            {% endif %}
+          </td>
           <td id="receipt-vat-amount">₱ 0.00</td>
         </tr>
 
@@ -281,15 +293,15 @@ table {
           </tr>
           {% else %}
           <tr class="receipt-discount-row">
-            <td>Discountable base</td>
+            <td>Eligible sales amount</td>
             <td>₱ {{ discount_breakdown.discountable_base|floatformat:2|intcomma }}</td>
           </tr>
           <tr class="receipt-discount-row">
-            <td>Eligible amount</td>
+            <td>Eligible diner portion</td>
             <td>₱ {{ discount_breakdown.eligible_amount|floatformat:2|intcomma }}</td>
           </tr>
           <tr class="receipt-discount-row">
-            <td>20% portion</td>
+            <td>20% Senior/PWD discount</td>
             <td>₱ {{ discount_breakdown.discount_20_amount|floatformat:2|intcomma }}</td>
           </tr>
           {% endif %}
